@@ -1,35 +1,35 @@
-'use client';
+"use client";
 
-import React, { memo } from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
-import { TaskNode as TaskNodeType } from '@/types/graph';
+import React, { memo } from "react";
+import { Handle, Position, NodeProps } from "@xyflow/react";
+import { TaskNode as TaskNodeType } from "@/types/graph";
 
 const PRIORITY_LABELS: Record<string, string> = {
-  urgent: '🔴',
-  high: '🟠',
-  normal: '🟡',
-  low: '🔵',
+  urgent: "🔴",
+  high: "🟠",
+  normal: "🟡",
+  low: "🔵",
 };
 
 function formatDate(timestamp: string | null): string | null {
   if (!timestamp) return null;
   const ms = Number(timestamp);
   const date = isNaN(ms) ? new Date(timestamp) : new Date(ms);
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
 
 const TaskNode = memo<NodeProps<TaskNodeType>>(({ data, selected }) => {
-  const statusColor = (data.statusColor as string) || '#555';
+  const statusColor = (data.statusColor as string) || "#555";
 
   return (
     <div
-      className={`task-node ${selected ? 'selected' : ''}`}
+      className={`task-node ${selected ? "selected" : ""}`}
       style={{
-        border: `1.5px solid ${selected ? statusColor : statusColor + '44'}`,
-        boxShadow: selected ? `0 0 16px ${statusColor}33` : 'none',
+        border: `1.5px solid ${selected ? statusColor : statusColor + "44"}`,
+        boxShadow: selected ? `0 0 16px ${statusColor}33` : "none",
       }}
     >
-      <Handle type="target" position={Position.Top} />
+      <Handle type="target" position={Position.Left} />
 
       <div className="task-header">
         <div
@@ -39,7 +39,7 @@ const TaskNode = memo<NodeProps<TaskNodeType>>(({ data, selected }) => {
         />
         {(data.priority as string) && (
           <span className="task-priority">
-            {PRIORITY_LABELS[data.priority as string] ?? '⚪'}
+            {PRIORITY_LABELS[data.priority as string] ?? "⚪"}
           </span>
         )}
         <span className="node-label task-label">{data.label as string}</span>
@@ -65,10 +65,10 @@ const TaskNode = memo<NodeProps<TaskNodeType>>(({ data, selected }) => {
         </div>
       )}
 
-      <Handle type="source" position={Position.Bottom} />
+      <Handle type="source" position={Position.Right} />
     </div>
   );
 });
 
-TaskNode.displayName = 'TaskNode';
+TaskNode.displayName = "TaskNode";
 export default TaskNode;

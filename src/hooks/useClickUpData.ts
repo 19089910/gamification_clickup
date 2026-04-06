@@ -1,9 +1,9 @@
-import { useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useGraphStore } from '@/store/graphStore';
-import { transformClickUpToGraph, SpaceInfo } from '@/lib/graph-transformer';
-import { getLayoutedElements } from '@/lib/layout';
-import { ClickUpFolder, ClickUpList, ClickUpTask } from '@/types/clickup';
+import { useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useGraphStore } from "@/store/graphStore";
+import { transformClickUpToGraph, SpaceInfo } from "@/lib/graph-transformer";
+import { getLayoutedElements } from "@/lib/layout";
+import { ClickUpFolder, ClickUpList, ClickUpTask } from "@/types/clickup";
 
 interface GraphApiResponse {
   folders: ClickUpFolder[];
@@ -15,20 +15,15 @@ interface GraphApiResponse {
 
 async function fetchGraphData(spaceId: string): Promise<GraphApiResponse> {
   const res = await fetch(`/api/clickup/graph?spaceId=${spaceId}`);
-  if (!res.ok) throw new Error('Failed to fetch graph data');
+  if (!res.ok) throw new Error("Failed to fetch graph data");
   return res.json();
 }
 
 export function useClickUpData(space: SpaceInfo) {
   const { setNodes, setEdges, setLoading, setError } = useGraphStore();
 
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ['clickup-graph', space.id],
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["clickup-graph", space.id],
     queryFn: () => fetchGraphData(space.id),
     staleTime: 5 * 60 * 1000, // 5 min cache
     retry: 2,
@@ -39,10 +34,10 @@ export function useClickUpData(space: SpaceInfo) {
     if (!data) return;
 
     const folderListsMap = new Map<string, ClickUpList[]>(
-      Object.entries(data.folderListsMap)
+      Object.entries(data.folderListsMap),
     );
     const listTasksMap = new Map<string, ClickUpTask[]>(
-      Object.entries(data.listTasksMap)
+      Object.entries(data.listTasksMap),
     );
 
     const { nodes: rawNodes, edges: rawEdges } = transformClickUpToGraph(
@@ -50,13 +45,13 @@ export function useClickUpData(space: SpaceInfo) {
       data.folders,
       data.folderlessLists,
       folderListsMap,
-      listTasksMap
+      listTasksMap,
     );
 
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
       rawNodes,
       rawEdges,
-      'TB'
+      "LR",
     );
 
     setNodes(layoutedNodes);
@@ -69,7 +64,9 @@ export function useClickUpData(space: SpaceInfo) {
 
   useEffect(() => {
     if (isError) {
-      setError(error instanceof Error ? error.message : 'Erro ao carregar dados');
+      setError(
+        error instanceof Error ? error.message : "Erro ao carregar dados",
+      );
     }
   }, [isError, error, setError]);
 

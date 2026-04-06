@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { useCallback } from 'react';
+import React, { useCallback } from "react";
 import {
   ReactFlow,
   Background,
@@ -9,15 +9,15 @@ import {
   BackgroundVariant,
   NodeTypes,
   Panel,
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 
-import { useGraphStore } from '@/store/graphStore';
-import { AppNode } from '@/types/graph';
-import SpaceNode from './nodes/SpaceNode';
-import FolderNode from './nodes/FolderNode';
-import ListNode from './nodes/ListNode';
-import TaskNode from './nodes/TaskNode';
+import { useGraphStore } from "@/store/graphStore";
+import { AppNode } from "@/types/graph";
+import SpaceNode from "./nodes/SpaceNode";
+import FolderNode from "./nodes/FolderNode";
+import ListNode from "./nodes/ListNode";
+import TaskNode from "./nodes/TaskNode";
 
 const nodeTypes: NodeTypes = {
   space: SpaceNode,
@@ -29,19 +29,14 @@ const nodeTypes: NodeTypes = {
 const proOptions = { hideAttribution: false };
 
 export default function GraphCanvas() {
-  const {
-    nodes,
-    edges,
-    onNodesChange,
-    onEdgesChange,
-    setSelectedNode,
-  } = useGraphStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, setSelectedNode } =
+    useGraphStore();
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: AppNode) => {
       setSelectedNode(node);
     },
-    [setSelectedNode]
+    [setSelectedNode],
   );
 
   const onPaneClick = useCallback(() => {
@@ -49,7 +44,7 @@ export default function GraphCanvas() {
   }, [setSelectedNode]);
 
   return (
-    <div style={{ width: '100%', height: '100%' }}>
+    <div style={{ width: "100%", height: "100%" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -64,7 +59,7 @@ export default function GraphCanvas() {
         maxZoom={2}
         proOptions={proOptions}
         defaultEdgeOptions={{
-          style: { strokeWidth: 1.5, stroke: '#333' },
+          style: { strokeWidth: 1.5, stroke: "#333" },
         }}
       >
         <Background
@@ -75,24 +70,29 @@ export default function GraphCanvas() {
         />
         <Controls
           style={{
-            background: '#111',
-            border: '1px solid #222',
+            background: "#111",
+            border: "1px solid #222",
             borderRadius: 8,
           }}
         />
         <MiniMap
           style={{
-            background: '#0a0a0a',
-            border: '1px solid #1a1a1a',
+            background: "#0a0a0a",
+            border: "1px solid #1a1a1a",
             borderRadius: 8,
           }}
           nodeColor={(node) => {
             switch (node.type) {
-              case 'space': return '#7c3aed';
-              case 'folder': return '#0ea5e9';
-              case 'list': return '#10b981';
-              case 'task': return '#f59e0b';
-              default: return '#333';
+              case "space":
+                return "#7c3aed";
+              case "folder":
+                return "#0ea5e9";
+              case "list":
+                return "#10b981";
+              case "task":
+                return "#f59e0b";
+              default:
+                return "#333";
             }
           }}
           maskColor="rgba(0,0,0,0.7)"
@@ -100,19 +100,19 @@ export default function GraphCanvas() {
         <Panel position="top-left">
           <div className="graph-legend">
             <div className="legend-item">
-              <span className="legend-dot" style={{ background: '#7c3aed' }} />
+              <span className="legend-dot" style={{ background: "#7c3aed" }} />
               <span>Space</span>
             </div>
             <div className="legend-item">
-              <span className="legend-dot" style={{ background: '#0ea5e9' }} />
+              <span className="legend-dot" style={{ background: "#0ea5e9" }} />
               <span>Folder</span>
             </div>
             <div className="legend-item">
-              <span className="legend-dot" style={{ background: '#10b981' }} />
+              <span className="legend-dot" style={{ background: "#10b981" }} />
               <span>List</span>
             </div>
             <div className="legend-item">
-              <span className="legend-dot" style={{ background: '#f59e0b' }} />
+              <span className="legend-dot" style={{ background: "#f59e0b" }} />
               <span>Task</span>
             </div>
           </div>
