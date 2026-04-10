@@ -68,3 +68,38 @@ export async function getTasks(listId: string): Promise<ClickUpTask[]> {
   );
   return data.tasks;
 }
+
+const TRIMESTRE_FIELD_ID = '8290f74e-4241-4eac-af4a-08018ecbbffa';
+const QUARTER_MAP: Record<string, string> = {
+  Q1: '005bcc9c-0b1b-439e-b086-83ddd9957a71',
+  Q2: '09bf455a-d061-41bb-8deb-11512519e841',
+  Q3: '26e22e95-38e3-4bd7-854a-d247984dfece',
+  Q4: 'ab3e5ed2-8ff7-4c33-a222-281a2e4b841a',
+};
+
+export async function createTask(listId: string, name: string, quarter?: string): Promise<ClickUpTask> {
+  const body: any = { name };
+
+  if (quarter && QUARTER_MAP[quarter]) {
+    body.custom_fields = [
+      {
+        id: TRIMESTRE_FIELD_ID,
+        value: QUARTER_MAP[quarter],
+      },
+    ];
+  }
+
+  const res = await fetch(`${BASE_URL}/list/${listId}/task`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`ClickUp API error [${res.status}]: ${error}`);
+  }
+
+  return res.json() as Promise<ClickUpTask>;
+}
+

@@ -40,9 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-#docs
-walkthrough.md.resolved
-walkthrough.md
-task.md.resolved
+# docs
+*.md.resolved
 CLAUDE.md
 AGENTS.md
+
+# tmp
+check_fields.js

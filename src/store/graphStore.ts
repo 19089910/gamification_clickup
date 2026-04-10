@@ -32,6 +32,9 @@ interface GraphStore {
   setSpaceId: (id: string) => void;
   setSidebarOpen: (open: boolean) => void;
   setQuarter: (q: Quarter | null) => void;
+  
+  // New: task creation
+  createTask: (listId: string, name: string, quarter: string | null) => Promise<any>;
 }
 
 export const useGraphStore = create<GraphStore>((set, get) => ({
@@ -61,4 +64,29 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   setSpaceId: (id) => set({ spaceId: id }),
   setSidebarOpen: (open) => set({ isSidebarOpen: open }),
   setQuarter: (q) => set({ selectedQuarter: q }),
+
+  createTask: async (listId, name, quarter) => {
+    set({ isLoading: true });
+    try {
+      const res = await fetch('/api/clickup/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listId, name, quarter }),
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to create task');
+      }
+
+      const task = await res.json();
+      set({ isLoading: false });
+      return task;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      set({ error: message, isLoading: false });
+      throw error;
+    }
+  },
 }));
+

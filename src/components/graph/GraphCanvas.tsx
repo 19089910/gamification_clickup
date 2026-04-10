@@ -14,6 +14,7 @@ import "@xyflow/react/dist/style.css";
 
 import { useGraphStore } from "@/store/graphStore";
 import { AppNode } from "@/types/graph";
+import { useQueryClient } from "@tanstack/react-query";
 import SpaceNode from "./nodes/SpaceNode";
 import FolderNode from "./nodes/FolderNode";
 import ListNode from "./nodes/ListNode";
@@ -29,14 +30,34 @@ const nodeTypes: NodeTypes = {
 const proOptions = { hideAttribution: false };
 
 export default function GraphCanvas() {
-  const { nodes, edges, onNodesChange, onEdgesChange, setSelectedNode } =
+  const { nodes, edges, onNodesChange, onEdgesChange, setSelectedNode, createTask, selectedQuarter } =
     useGraphStore();
+  const queryClient = useQueryClient();
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: AppNode) => {
       setSelectedNode(node);
     },
     [setSelectedNode],
+  );
+
+  const onNodeDoubleClick = useCallback(
+    async (_: React.MouseEvent, node: AppNode) => {
+      if (node.type !== 'list') return;
+      
+      const listId = node.data.listId as string;
+      const name = prompt('Nome da nova task:');
+      if (!name) return;
+
+      try {
+        await createTask(listId, name, selectedQuarter);
+        queryClient.invalidateQueries({ queryKey: ["clickup-graph"] });
+      } catch (err) {
+        console.error("Error creating task:", err);
+        alert("Erro ao criar task no ClickUp");
+      }
+    },
+    [createTask, selectedQuarter, queryClient]
   );
 
   const onPaneClick = useCallback(() => {
@@ -51,6 +72,7 @@ export default function GraphCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         fitView
@@ -62,6 +84,7 @@ export default function GraphCanvas() {
           style: { strokeWidth: 1.5, stroke: "#333" },
         }}
       >
+
         <Background
           variant={BackgroundVariant.Dots}
           gap={24}
