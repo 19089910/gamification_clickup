@@ -7,6 +7,7 @@ export interface SpaceNodeData {
   label: string;
   spaceId: string;
   color: string | null;
+  collapsed: boolean;
   [key: string]: unknown;
 }
 
@@ -16,6 +17,7 @@ export interface FolderNodeData {
   taskCount: string;
   state?: NodeState;
   color?: string;
+  collapsed: boolean;
   [key: string]: unknown;
 }
 
@@ -27,6 +29,7 @@ export interface ListNodeData {
   quarters?: string[];
   primaryQuarter?: string | null;
   state: NodeState;
+  collapsed: boolean;
   [key: string]: unknown;
 }
 
@@ -42,8 +45,10 @@ export interface TaskNodeData {
   assignees: string[];
   tags: { name: string; bg: string; fg: string }[];
   state: NodeState;
+  collapsed: boolean;
   [key: string]: unknown;
 }
+
 
 // Node types (discriminated union)
 export type SpaceNode = Node<SpaceNodeData, 'space'>;

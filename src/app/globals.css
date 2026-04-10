@@ -991,3 +991,44 @@ button {
   to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
+/* ============================================================
+   GRAPH NODE COLLAPSE TOGGLE
+   ============================================================ */
+
+.node-collapse-toggle {
+  position: absolute;
+  top: 50%;
+  right: -8px; 
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-3);
+  border-radius: 50%;
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 10;
+  transition: all var(--t-fast);
+}
+
+.node-collapse-toggle:hover {
+  background: var(--surface-3);
+  color: var(--text-1);
+  border-color: var(--purple-lg);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.space-toggle {
+  right: -10px;
+}
+
+.list-toggle {
+  right: -10px;
+}
+
+

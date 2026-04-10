@@ -19,8 +19,19 @@ async function fetchGraphData(spaceId: string): Promise<GraphApiResponse> {
   return res.json();
 }
 
+import { getVisibleGraph } from "@/lib/graph-utils";
+
 export function useClickUpData(space: SpaceInfo) {
-  const { setNodes, setEdges, setLoading, setError, selectedQuarter } = useGraphStore();
+  const { 
+    setNodes, 
+    setEdges, 
+    setFullGraph, 
+    setLoading, 
+    setError, 
+    selectedQuarter,
+    fullNodes,
+    fullEdges
+  } = useGraphStore();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["clickup-graph", space.id],
@@ -49,15 +60,25 @@ export function useClickUpData(space: SpaceInfo) {
       selectedQuarter
     );
 
+    setFullGraph(rawNodes, rawEdges);
+  }, [data, space, setFullGraph, selectedQuarter]);
+
+  // Effect to update visible graph whenever fullNodes or fullEdges change
+  useEffect(() => {
+    if (fullNodes.length === 0) return;
+
+    const { nodes: visibleNodes, edges: visibleEdges } = getVisibleGraph(fullNodes, fullEdges);
+    
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      rawNodes,
-      rawEdges,
-      "LR",
+      visibleNodes,
+      visibleEdges,
+      "LR"
     );
 
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
-  }, [data, space, setNodes, setEdges, selectedQuarter]);
+  }, [fullNodes, fullEdges, setNodes, setEdges]);
+
 
   useEffect(() => {
     setLoading(isLoading);

@@ -113,6 +113,23 @@ function cleanListName(name: string): string {
   return name.replace(/\[.*?\]|\(.*?\)/g, '').trim();
 }
 
+type NodeType = 'space' | 'folder' | 'list' | 'task';
+
+function getDefaultCollapsed(type: NodeType): boolean {
+  switch (type) {
+    case 'space':
+      return false;
+    case 'folder':
+      return true; // Folders iniciam fechados
+    case 'list':
+      return false;
+    case 'task':
+      return false;
+    default:
+      return false;
+  }
+}
+
 export function transformClickUpToGraph(
   space: SpaceInfo,
   folders: ClickUpFolder[],
@@ -135,6 +152,7 @@ export function transformClickUpToGraph(
       label: space.name,
       spaceId: space.id,
       color: space.color,
+      collapsed: getDefaultCollapsed('space'),
     },
   });
 
@@ -154,6 +172,7 @@ export function transformClickUpToGraph(
         folderId: folder.id,
         taskCount: folderTaskCount.toString(),
         color: folderColor,
+        collapsed: getDefaultCollapsed('folder'),
       },
     });
 
@@ -194,7 +213,8 @@ export function transformClickUpToGraph(
           color: info.listColor,
           quarters: info.quarters,
           primaryQuarter: info.primaryQuarter,
-          state
+          state,
+          collapsed: getDefaultCollapsed('list'),
         },
       });
 
@@ -245,7 +265,8 @@ export function transformClickUpToGraph(
               bg: t.tag_bg,
               fg: t.tag_fg
             })) ?? [],
-            state: taskState
+            state: taskState,
+            collapsed: getDefaultCollapsed('task'),
           },
         });
 
@@ -258,4 +279,4 @@ export function transformClickUpToGraph(
   }
 
   return { nodes, edges };
-}
+}

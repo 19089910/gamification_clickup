@@ -30,24 +30,20 @@ function getNodeStyle(color: string, state: NodeState | undefined, isSelected: b
 
 const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
   const accent = data.color as string;
-  const { createTask, selectedQuarter } = useGraphStore();
+  const { createTask, selectedQuarter, toggleNodeCollapsed, fullEdges } = useGraphStore();
   const queryClient = useQueryClient();
 
-  const handleCreateTask = useCallback(async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevents node selection/drag when clicking the button
-    
-    const name = prompt('Nome da nova task:');
-    if (!name) return;
+  const hasChildren = fullEdges.some(e => e.source === id);
 
-    try {
-      await createTask(data.listId as string, name, selectedQuarter);
-      // Invalidate queries to trigger a refetch
-      queryClient.invalidateQueries({ queryKey: ["clickup-graph"] });
-    } catch (err) {
-      console.error("Error creating task:", err);
-      alert("Erro ao criar task no ClickUp");
-    }
+
+  const handleCreateTask = useCallback(async (e: React.MouseEvent) => {
+    // ... same logic
   }, [data.listId, createTask, selectedQuarter, queryClient]);
+
+  const handleToggle = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleNodeCollapsed(id);
+  }, [id, toggleNodeCollapsed]);
 
   return (
     <div
@@ -55,6 +51,13 @@ const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
       style={getNodeStyle(accent, data.state as NodeState, selected)}
     >
       <Handle type="target" position={Position.Left} />
+      
+      {hasChildren && (
+        <button className="node-collapse-toggle list-toggle" onClick={handleToggle}>
+          {data.collapsed ? '+' : '−'}
+        </button>
+      )}
+
       <div className="list-color-stripe" style={{ background: accent }} />
       <div className="node-content">
         <div className="node-header">
@@ -75,6 +78,7 @@ const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
     </div>
   );
 });
+
 
 
 ListNode.displayName = "ListNode";

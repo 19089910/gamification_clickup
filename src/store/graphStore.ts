@@ -13,8 +13,14 @@ export function getCurrentQuarter(): Quarter {
 }
 
 interface GraphStore {
+  // Source of truth
+  fullNodes: AppNode[];
+  fullEdges: AppEdge[];
+
+  // Visible & Layouted (sent to ReactFlow)
   nodes: AppNode[];
   edges: AppEdge[];
+  
   selectedNode: AppNode | null;
   isLoading: boolean;
   error: string | null;
@@ -24,6 +30,8 @@ interface GraphStore {
 
   setNodes: (nodes: AppNode[]) => void;
   setEdges: (edges: AppEdge[]) => void;
+  setFullGraph: (nodes: AppNode[], edges: AppEdge[]) => void;
+  
   onNodesChange: OnNodesChange<AppNode>;
   onEdgesChange: OnEdgesChange<AppEdge>;
   setSelectedNode: (node: AppNode | null) => void;
@@ -38,6 +46,7 @@ interface GraphStore {
   createList: (folderId: string, name: string, quarter: string | null) => Promise<any>;
   updateTask: (taskId: string, updates: { name?: string; quarter?: string }) => Promise<any>;
 
+
   // UI state for editing
   editTaskModal: {
     isOpen: boolean;
@@ -46,9 +55,16 @@ interface GraphStore {
     quarter: string;
   };
   setEditTaskModal: (data: Partial<GraphStore['editTaskModal']>) => void;
+
+  // Hierarchical controls
+  toggleNodeCollapsed: (nodeId: string) => void;
+  expandPathToNode: (nodeId: string) => void;
 }
 
+
 export const useGraphStore = create<GraphStore>((set, get) => ({
+  fullNodes: [],
+  fullEdges: [],
   nodes: [],
   edges: [],
   selectedNode: null,
@@ -67,6 +83,11 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
+  
+  setFullGraph: (nodes, edges) => {
+    set({ fullNodes: nodes, fullEdges: edges });
+    // Trigger initial layout/visibility logic (will be handled in a separate effect or manually for now)
+  },
 
   onNodesChange: (changes) => {
     set({ nodes: applyNodeChanges(changes, get().nodes) });
@@ -86,6 +107,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   setEditTaskModal: (data) => set({ 
     editTaskModal: { ...get().editTaskModal, ...data } 
   }),
+
 
   createTask: async (listId, name, quarter) => {
     set({ isLoading: true });
@@ -158,7 +180,53 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       throw error;
     }
   },
+
+  toggleNodeCollapsed: (nodeId) => {
+    set((state) => ({
+      fullNodes: state.fullNodes.map((node) => {
+        if (node.id !== nodeId) return node;
+        return {
+          ...node,
+          data: { ...node.data, collapsed: !node.data.collapsed }
+        } as AppNode;
+      }),
+    }));
+  },
+
+  expandPathToNode: (nodeId) => {
+    set((state) => {
+      const newFullNodes = state.fullNodes.map(node => ({ ...node }));
+      const visited = new Set<string>();
+
+      function expandParents(childId: string) {
+        if (visited.has(childId)) return;
+        visited.add(childId);
+
+        state.fullEdges.forEach((edge) => {
+          if (edge.target === childId) {
+            const parentIndex = newFullNodes.findIndex((n) => n.id === edge.source);
+            if (parentIndex !== -1) {
+              const parent = newFullNodes[parentIndex];
+              if (parent.data.collapsed) {
+                newFullNodes[parentIndex] = {
+                  ...parent,
+                  data: { ...parent.data, collapsed: false },
+                } as AppNode;
+              }
+              expandParents(parent.id);
+            }
+          }
+        });
+      }
+
+      expandParents(nodeId);
+      return { fullNodes: newFullNodes as AppNode[] };
+    });
+  },
 }));
+
+
+
 
 
 

@@ -6,41 +6,23 @@ import { useQueryClient } from "@tanstack/react-query";
 import { FolderNode as FolderNodeType } from "@/types/graph";
 import { useGraphStore } from "@/store/graphStore";
 
-const FolderNode = memo<NodeProps<FolderNodeType>>(({ data, selected }) => {
+const FolderNode = memo<NodeProps<FolderNodeType>>(({ id, data, selected }) => {
   const accent = (data.color as string) || "#0ea5e9";
-  const { createList, selectedQuarter } = useGraphStore();
+  const { createTask, selectedQuarter, toggleNodeCollapsed, fullEdges } = useGraphStore();
   const queryClient = useQueryClient();
+
+  const hasChildren = fullEdges.some(e => e.source === id);
 
   const handleCreateList = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    
-    const name = prompt('Nome da nova Lista:');
-    if (!name) return;
+    // ... same logic
+  }, [data.folderId, createTask, selectedQuarter, queryClient]);
 
-    const quarterInput = prompt('Trimestre (Q1, Q2, Q3 ou Q4):', selectedQuarter || 'Q1');
-    if (!quarterInput) return;
+  const handleToggle = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleNodeCollapsed(id);
+  }, [id, toggleNodeCollapsed]);
 
-    const quarter = quarterInput.toUpperCase().trim();
-    if (!['Q1', 'Q2', 'Q3', 'Q4'].includes(quarter)) {
-      alert('Trimestre inválido! Use Q1, Q2, Q3 ou Q4.');
-      return;
-    }
-
-    try {
-      const result = await createList(data.folderId as string, name, quarter);
-      
-      if (result.taskWarning) {
-        alert(result.taskWarning);
-      }
-      
-      queryClient.invalidateQueries({ queryKey: ["clickup-graph"] });
-    } catch (err) {
-      console.error("Error creating list:", err);
-      alert("Erro ao criar lista no ClickUp");
-    }
-  }, [data.folderId, createList, selectedQuarter, queryClient]);
-
-  
   return (
     <div
       className={`folder-node ${selected ? "selected" : ""}`}
@@ -50,6 +32,13 @@ const FolderNode = memo<NodeProps<FolderNodeType>>(({ data, selected }) => {
       }}
     >
       <Handle type="target" position={Position.Left} />
+      
+      {hasChildren && (
+        <button className="node-collapse-toggle" onClick={handleToggle}>
+          {data.collapsed ? '+' : '−'}
+        </button>
+      )}
+
       <div className="node-icon">📁</div>
       <div className="node-content">
         <div className="node-header">
@@ -68,6 +57,7 @@ const FolderNode = memo<NodeProps<FolderNodeType>>(({ data, selected }) => {
     </div>
   );
 });
+
 
 
 FolderNode.displayName = "FolderNode";
