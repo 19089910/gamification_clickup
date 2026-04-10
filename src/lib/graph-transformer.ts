@@ -1,6 +1,6 @@
 import { MarkerType } from '@xyflow/react';
 import { ClickUpFolder, ClickUpList, ClickUpTask } from '@/types/clickup';
-import { AppNode, AppEdge } from '@/types/graph';
+import { AppNode, AppEdge, NodeState } from '@/types/graph';
 
 export interface SpaceInfo {
   id: string;
@@ -32,14 +32,14 @@ function getAreaColor(name: string): string {
       if (lowerName.includes(area.toLowerCase())) return color;
     }
   }
-  return "#0ea5e9"; // Default generic color
+  return "#0ea5e9";
 }
 
-const defaultEdge = (source: string, target: string, animated = false): AppEdge => ({
+const defaultEdge = (source: string, target: string): AppEdge => ({
   id: `${source}->${target}`,
   source,
   target,
-  animated,
+  animated: false,
   style: { stroke: '#333', strokeWidth: 1.5 },
   markerEnd: {
     type: MarkerType.ArrowClosed,
@@ -49,44 +49,84 @@ const defaultEdge = (source: string, target: string, animated = false): AppEdge 
   },
 });
 
+// ✅ Extrai múltiplos quarters das tasks
+function getListQuarters(tasks: ClickUpTask[]): string[] {
+  const quarters = new Set<string>();
+
+  for (const task of tasks) {
+    if (!task.custom_fields) continue;
+
+    const field = task.custom_fields.find(f =>
+      f.name.toLowerCase().includes('trimestre')
+    );
+
+    if (!field || field.value === undefined) continue;
+
+    const options = field.type_config?.options || [];
+
+    const selected = options.find((o: any) =>
+      o.id === field.value || o.orderindex === field.value
+    );
+
+    if (!selected?.name) continue;
+
+    const val = selected.name.toUpperCase();
+
+    if (val.includes('Q1')) quarters.add('Q1');
+    if (val.includes('Q2')) quarters.add('Q2');
+    if (val.includes('Q3')) quarters.add('Q3');
+    if (val.includes('Q4')) quarters.add('Q4');
+  }
+
+  return Array.from(quarters);
+}
+
+// ✅ Define quarter principal (para grafo)
+function getPrimaryQuarter(quarters: string[]): string | null {
+  const order = ['Q1', 'Q2', 'Q3', 'Q4'];
+  return order.find(q => quarters.includes(q)) || null;
+}
+
+function getNodeState(quarters: string[], selectedQuarter: string | null): NodeState {
+  if (!selectedQuarter || selectedQuarter === 'All') return 'active';
+  return quarters.includes(selectedQuarter) ? 'active' : 'inactive';
+}
+
+function getTaskQuarter(task: ClickUpTask): string | null {
+  const field = task.custom_fields?.find(f =>
+    f.name.toLowerCase().includes('trimestre')
+  );
+
+  if (!field || field.value === undefined) return null;
+
+  const options = field.type_config?.options || [];
+
+  const selected = options.find((o: any) =>
+    o.id === field.value || o.orderindex === field.value
+  );
+
+  return selected?.name?.toUpperCase() || null;
+}
+
+function cleanListName(name: string): string {
+  // Removes strings like [TAG] or (TAG) from the start/middle of the list name
+  return name.replace(/\[.*?\]|\(.*?\)/g, '').trim();
+}
+
 export function transformClickUpToGraph(
   space: SpaceInfo,
   folders: ClickUpFolder[],
   folderlessLists: ClickUpList[],
   folderListsMap: Map<string, ClickUpList[]>,
-  listTasksMap: Map<string, ClickUpTask[]>
+  listTasksMap: Map<string, ClickUpTask[]>,
+  selectedQuarter: string | null = null
 ): { nodes: AppNode[]; edges: AppEdge[] } {
+
   const nodes: AppNode[] = [];
   const edges: AppEdge[] = [];
 
-  // Helper function to extract the Quarter (Q1, Q2, Q3, Q4)
-  function getQuarter(list: ClickUpList, tasks: ClickUpTask[]): string | null {
-    const nameMatch = list.name.match(/\b(Q[1-4])\b/i);
-    if (nameMatch) return nameMatch[1].toUpperCase();
-
-    // Check Custom Fields on Tasks
-    for (const task of tasks) {
-      if (task.custom_fields) {
-        const field = task.custom_fields.find(f => f.name.toLowerCase().includes('trimestre'));
-        if (field && field.value !== undefined) {
-           const options = field.type_config?.options || [];
-           // Dropdown values are indices mapping to options.orderindex or index
-           const selectedOption = options.find((o: any) => o.orderindex === field.value || o.id === field.value);
-           if (selectedOption && selectedOption.name) {
-             const val = selectedOption.name.toUpperCase();
-             if (val.includes('Q1')) return 'Q1';
-             if (val.includes('Q2')) return 'Q2';
-             if (val.includes('Q3')) return 'Q3';
-             if (val.includes('Q4')) return 'Q4';
-           }
-        }
-      }
-    }
-    return null;
-  }
-
-  // --- SPACE NODE (ROOT) ---
   const spaceNodeId = `space-${space.id}`;
+
   nodes.push({
     id: spaceNodeId,
     type: 'space',
@@ -98,10 +138,13 @@ export function transformClickUpToGraph(
     },
   });
 
-  // --- FOLDER NODES ---
+  // ===== FOLDERS =====
   for (const folder of folders) {
     const folderNodeId = `folder-${folder.id}`;
     const folderColor = getAreaColor(folder.name);
+    const lists = folderListsMap.get(folder.id) ?? [];
+    const folderTaskCount = lists.reduce((acc, list) => acc + (listTasksMap.get(list.id)?.length || 0), 0);
+
     nodes.push({
       id: folderNodeId,
       type: 'folder',
@@ -109,66 +152,80 @@ export function transformClickUpToGraph(
       data: {
         label: folder.name,
         folderId: folder.id,
-        taskCount: folder.task_count,
+        taskCount: folderTaskCount.toString(),
         color: folderColor,
       },
     });
+
     edges.push(defaultEdge(spaceNodeId, folderNodeId));
 
-    // --- LIST NODES (inside folder) ---
-    const lists = folderListsMap.get(folder.id) ?? [];
-    
-    // Group and identify Quarters
     const listInfos = lists.map(list => {
       const tasks = listTasksMap.get(list.id) ?? [];
-      const quarter = getQuarter(list, tasks);
-      let cleanName = list.name;
-      if (quarter) {
-        cleanName = cleanName.replace(new RegExp(`\\[?${quarter}\\]?[-\\s:]*`, 'i'), '').trim();
-      }
-      return { list, quarter, cleanName, tasks, listNodeId: `list-${list.id}`, listColor: folderColor };
+      const quarters = getListQuarters(tasks);
+      const primaryQuarter = getPrimaryQuarter(quarters);
+
+      return {
+        list,
+        tasks,
+        quarters,
+        primaryQuarter,
+        listNodeId: `list-${list.id}`,
+        listColor: folderColor
+      };
     });
 
-    const quartersOrder = ['Q1', 'Q2', 'Q3', 'Q4'];
-    const activeQuarters = quartersOrder.filter(q => listInfos.some(info => info.quarter === q));
+    const order = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+    const activeQuarters = order.filter(q =>
+      listInfos.some(l => l.quarters.includes(q))
+    );
 
     for (const info of listInfos) {
+      const state = getNodeState(info.quarters, selectedQuarter);
+
       nodes.push({
         id: info.listNodeId,
         type: 'list',
         position: { x: 0, y: 0 },
         data: {
-          label: info.cleanName,
+          label: cleanListName(info.list.name),
           listId: info.list.id,
-          taskCount: info.list.task_count,
+          taskCount: info.tasks.length,
           color: info.listColor,
-          quarter: info.quarter // Optional meta tag
+          quarters: info.quarters,
+          primaryQuarter: info.primaryQuarter,
+          state
         },
       });
 
-      // Edge routing logic:
-      if (!info.quarter) {
-        // No quarter? Connect directly to folder
-        edges.push({ ...defaultEdge(folderNodeId, info.listNodeId), style: { stroke: info.listColor + '88', strokeWidth: 1.5 } });
+      if (!info.primaryQuarter) {
+        edges.push(defaultEdge(folderNodeId, info.listNodeId));
       } else {
-        const qIndex = activeQuarters.indexOf(info.quarter);
+        const qIndex = activeQuarters.indexOf(info.primaryQuarter);
+
         if (qIndex === 0) {
-          // First active quarter connects to folder
-          edges.push({ ...defaultEdge(folderNodeId, info.listNodeId), style: { stroke: info.listColor + '88', strokeWidth: 1.5 } });
+          edges.push(defaultEdge(folderNodeId, info.listNodeId));
         } else {
-          // Sequenced quarter connects to ALL lists from the PREVIOUS active quarter
           const prevQ = activeQuarters[qIndex - 1];
-          const prevLists = listInfos.filter(l => l.quarter === prevQ);
+
+          const prevLists = listInfos.filter(l =>
+            l.quarters.includes(prevQ)
+          );
+
           for (const prev of prevLists) {
-             edges.push({ ...defaultEdge(prev.listNodeId, info.listNodeId), style: { stroke: info.listColor + '88', strokeWidth: 1.5 } });
+            edges.push(defaultEdge(prev.listNodeId, info.listNodeId));
           }
         }
       }
 
-      // --- TASK NODES ---
+      // ===== TASKS =====
       for (const task of info.tasks) {
-        if (task.parent) continue; // skip subtasks at top level
+        if (task.parent) continue;
+
         const taskNodeId = `task-${task.id}`;
+        const taskQuarter = getTaskQuarter(task);
+        const taskState: NodeState = (!selectedQuarter || selectedQuarter === 'All' || taskQuarter === selectedQuarter) ? 'active' : 'inactive';
+
         nodes.push({
           id: taskNodeId,
           type: 'task',
@@ -176,92 +233,27 @@ export function transformClickUpToGraph(
           data: {
             label: task.name,
             taskId: task.id,
-            status: task.status.status,
-            statusColor: task.status.color,
+            status: task.status?.status ?? '',
+            statusColor: task.status?.color ?? '#999',
             priority: task.priority?.priority ?? null,
             priorityColor: task.priority?.color ?? null,
-            dueDate: task.due_date,
-            url: task.url,
-            assignees: task.assignees.map((a) => a.username),
-            tags: task.tags.map((t) => ({ name: t.name, bg: t.tag_bg, fg: t.tag_fg })),
+            dueDate: task.due_date ?? null,
+            url: task.url ?? '',
+            assignees: task.assignees?.map(a => a.username) ?? [],
+            tags: task.tags?.map(t => ({
+              name: t.name,
+              bg: t.tag_bg,
+              fg: t.tag_fg
+            })) ?? [],
+            state: taskState
           },
         });
+
         edges.push({
           ...defaultEdge(info.listNodeId, taskNodeId),
           style: { stroke: info.listColor + '55', strokeWidth: 1 },
         });
       }
-    }
-  }
-
-  // --- FOLDERLESS LISTS (direct children of space) ---
-  const folderlessInfos = folderlessLists.map(list => {
-    const tasks = listTasksMap.get(list.id) ?? [];
-    const quarter = getQuarter(list, tasks);
-    let cleanName = list.name;
-    if (quarter) {
-      cleanName = cleanName.replace(new RegExp(`\\[?${quarter}\\]?[-\\s:]*`, 'i'), '').trim();
-    }
-    const listColor = getAreaColor(list.name);
-    return { list, quarter, cleanName, tasks, listNodeId: `list-${list.id}`, listColor };
-  });
-
-  const quartersOrderStandalone = ['Q1', 'Q2', 'Q3', 'Q4'];
-  const activeQuartersStandalone = quartersOrderStandalone.filter(q => folderlessInfos.some(info => info.quarter === q));
-
-  for (const info of folderlessInfos) {
-    nodes.push({
-      id: info.listNodeId,
-      type: 'list',
-      position: { x: 0, y: 0 },
-      data: {
-        label: info.cleanName,
-        listId: info.list.id,
-        taskCount: info.list.task_count,
-        color: info.listColor,
-      },
-    });
-
-    if (!info.quarter) {
-      edges.push({ ...defaultEdge(spaceNodeId, info.listNodeId), style: { stroke: info.listColor + '88', strokeWidth: 1.5 } });
-    } else {
-      const qIndex = activeQuartersStandalone.indexOf(info.quarter);
-      if (qIndex === 0) {
-        edges.push({ ...defaultEdge(spaceNodeId, info.listNodeId), style: { stroke: info.listColor + '88', strokeWidth: 1.5 } });
-      } else {
-        const prevQ = activeQuartersStandalone[qIndex - 1];
-        const prevLists = folderlessInfos.filter(l => l.quarter === prevQ);
-        for (const prev of prevLists) {
-           edges.push({ ...defaultEdge(prev.listNodeId, info.listNodeId), style: { stroke: info.listColor + '88', strokeWidth: 1.5 } });
-        }
-      }
-    }
-
-    // Tasks in folderless lists
-    for (const task of info.tasks) {
-      if (task.parent) continue;
-      const taskNodeId = `task-${task.id}`;
-      nodes.push({
-        id: taskNodeId,
-        type: 'task',
-        position: { x: 0, y: 0 },
-        data: {
-          label: task.name,
-          taskId: task.id,
-          status: task.status.status,
-          statusColor: task.status.color,
-          priority: task.priority?.priority ?? null,
-          priorityColor: task.priority?.color ?? null,
-          dueDate: task.due_date,
-          url: task.url,
-          assignees: task.assignees.map((a) => a.username),
-          tags: task.tags.map((t) => ({ name: t.name, bg: t.tag_bg, fg: t.tag_fg })),
-        },
-      });
-      edges.push({
-        ...defaultEdge(info.listNodeId, taskNodeId),
-        style: { stroke: info.listColor + '55', strokeWidth: 1 },
-      });
     }
   }
 

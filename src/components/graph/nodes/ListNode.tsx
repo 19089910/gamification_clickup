@@ -2,7 +2,29 @@
 
 import React, { memo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { ListNode as ListNodeType } from "@/types/graph";
+import { ListNode as ListNodeType, NodeState } from "@/types/graph";
+
+function getNodeStyle(color: string, state: NodeState | undefined, isSelected: boolean) {
+  if (!state || state === 'active') {
+    return {
+      opacity: 1,
+      filter: 'none',
+      border: `2px solid ${isSelected ? color : color + 'aa'}`,
+      boxShadow: isSelected ? `0 0 20px ${color}88` : `0 0 12px ${color}44`,
+      transform: 'scale(1.02)',
+      transition: 'all 0.2s ease'
+    };
+  }
+
+  return {
+    opacity: 0.4,
+    filter: 'grayscale(100%)',
+    border: '1px solid #555',
+    boxShadow: 'none',
+    transform: 'scale(1)',
+    transition: 'all 0.2s ease'
+  };
+}
 
 const ListNode = memo<NodeProps<ListNodeType>>(({ data, selected }) => {
   const accent = data.color as string;
@@ -10,10 +32,7 @@ const ListNode = memo<NodeProps<ListNodeType>>(({ data, selected }) => {
   return (
     <div
       className={`list-node ${selected ? "selected" : ""}`}
-      style={{
-        border: `2px solid ${selected ? accent : accent + "55"}`,
-        boxShadow: selected ? `0 0 20px ${accent}44` : `0 0 10px ${accent}22`,
-      }}
+      style={getNodeStyle(accent, data.state as NodeState, selected)}
     >
       <Handle type="target" position={Position.Left} />
       <div className="list-color-stripe" style={{ background: accent }} />

@@ -2,7 +2,29 @@
 
 import React, { memo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { TaskNode as TaskNodeType } from "@/types/graph";
+import { TaskNode as TaskNodeType, NodeState } from "@/types/graph";
+
+function getNodeStyle(color: string, state: NodeState | undefined, isSelected: boolean) {
+  if (!state || state === 'active') {
+    return {
+      opacity: 1,
+      filter: 'none',
+      border: `1.5px solid ${isSelected ? color : color + '44'}`,
+      boxShadow: isSelected ? `0 0 16px ${color}33` : `0 0 8px ${color}22`,
+      transform: 'scale(1.01)',
+      transition: 'all 0.2s ease'
+    };
+  }
+
+  return {
+    opacity: 0.4,
+    filter: 'grayscale(100%)',
+    border: '1px solid #444',
+    boxShadow: 'none',
+    transform: 'scale(1)',
+    transition: 'all 0.2s ease'
+  };
+}
 
 const PRIORITY_LABELS: Record<string, string> = {
   urgent: "🔴",
@@ -24,10 +46,7 @@ const TaskNode = memo<NodeProps<TaskNodeType>>(({ data, selected }) => {
   return (
     <div
       className={`task-node ${selected ? "selected" : ""}`}
-      style={{
-        border: `1.5px solid ${selected ? statusColor : statusColor + "44"}`,
-        boxShadow: selected ? `0 0 16px ${statusColor}33` : "none",
-      }}
+      style={getNodeStyle(statusColor, data.state as NodeState, selected)}
     >
       <Handle type="target" position={Position.Left} />
 

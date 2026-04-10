@@ -1,5 +1,7 @@
 import { Node, Edge } from '@xyflow/react';
 
+export type NodeState = 'active' | 'inactive';
+
 // Node data types
 export interface SpaceNodeData {
   label: string;
@@ -12,6 +14,7 @@ export interface FolderNodeData {
   label: string;
   folderId: string;
   taskCount: string;
+  state?: NodeState;
   color?: string;
   [key: string]: unknown;
 }
@@ -21,6 +24,9 @@ export interface ListNodeData {
   listId: string;
   taskCount: number;
   color: string;
+  quarters?: string[];
+  primaryQuarter?: string | null;
+  state: NodeState;
   [key: string]: unknown;
 }
 
@@ -35,6 +41,7 @@ export interface TaskNodeData {
   url: string;
   assignees: string[];
   tags: { name: string; bg: string; fg: string }[];
+  state: NodeState;
   [key: string]: unknown;
 }
 

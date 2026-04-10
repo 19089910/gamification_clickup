@@ -4,8 +4,15 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useClickUpData } from '@/hooks/useClickUpData';
-import { useGraphStore } from '@/store/graphStore';
+import { useGraphStore, Quarter } from '@/store/graphStore';
 import LoadingScreen from '@/components/ui/LoadingScreen';
+
+const QUARTER_BG: Record<Quarter, string> = {
+  Q1: '#0f172a', // azul escuro (início)
+  Q2: '#052e16', // verde escuro (crescimento)
+  Q3: '#3f1d0b', // laranja escuro (expansão)
+  Q4: '#2e1065', // roxo escuro (fechamento)
+};
 
 // Lazy load GraphCanvas to avoid SSR issues (React Flow requires browser APIs)
 const GraphCanvas = dynamic(() => import('@/components/graph/GraphCanvas'), {
@@ -32,13 +39,16 @@ function MapView() {
   }), [spaceId, spaceName, spaceColor]);
 
   const { isLoading, isError, error } = useClickUpData(space);
-  const { nodes, edges } = useGraphStore();
+  const { nodes, edges, selectedQuarter, setQuarter } = useGraphStore();
 
   const nodeCount = nodes.length;
   const edgeCount = edges.length;
 
   return (
-    <div className="map-page">
+    <div 
+      className="map-page"
+      style={{ background: selectedQuarter ? QUARTER_BG[selectedQuarter] : undefined, transition: 'background 0.5s ease' }}
+    >
       {/* Top bar */}
       <header className="map-topbar">
         <button
@@ -50,6 +60,27 @@ function MapView() {
         </button>
         <div className="topbar-divider" />
         <h1 className="topbar-title">{spaceName}</h1>
+        
+        <select
+          value={selectedQuarter || 'Q1'}
+          onChange={(e) => setQuarter(e.target.value as Quarter)}
+          style={{
+            padding: '4px 8px',
+            background: '#161616',
+            color: '#f0f0f0',
+            border: '1px solid #333',
+            borderRadius: 6,
+            fontSize: 12,
+            outline: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          <option value="Q1">Q1</option>
+          <option value="Q2">Q2</option>
+          <option value="Q3">Q3</option>
+          <option value="Q4">Q4</option>
+        </select>
+
         {!isLoading && nodeCount > 0 && (
           <span className="topbar-badge">
             {nodeCount} nós · {edgeCount} conexões

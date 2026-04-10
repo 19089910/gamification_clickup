@@ -20,7 +20,7 @@ async function fetchGraphData(spaceId: string): Promise<GraphApiResponse> {
 }
 
 export function useClickUpData(space: SpaceInfo) {
-  const { setNodes, setEdges, setLoading, setError } = useGraphStore();
+  const { setNodes, setEdges, setLoading, setError, selectedQuarter } = useGraphStore();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["clickup-graph", space.id],
@@ -46,6 +46,7 @@ export function useClickUpData(space: SpaceInfo) {
       data.folderlessLists,
       folderListsMap,
       listTasksMap,
+      selectedQuarter
     );
 
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
@@ -56,7 +57,7 @@ export function useClickUpData(space: SpaceInfo) {
 
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
-  }, [data, space, setNodes, setEdges]);
+  }, [data, space, setNodes, setEdges, selectedQuarter]);
 
   useEffect(() => {
     setLoading(isLoading);
