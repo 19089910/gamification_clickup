@@ -43,22 +43,51 @@ export default function GraphCanvas() {
 
   const onNodeDoubleClick = useCallback(
     async (_: React.MouseEvent, node: AppNode) => {
-      if (node.type !== 'list') return;
-      
-      const listId = node.data.listId as string;
-      const name = prompt('Nome da nova task:');
-      if (!name) return;
+      if (node.type === 'list') {
+        const listId = node.data.listId as string;
+        const name = prompt('Nome da nova task:');
+        if (!name) return;
 
-      try {
-        await createTask(listId, name, selectedQuarter);
-        queryClient.invalidateQueries({ queryKey: ["clickup-graph"] });
-      } catch (err) {
-        console.error("Error creating task:", err);
-        alert("Erro ao criar task no ClickUp");
+        try {
+          await createTask(listId, name, selectedQuarter);
+          queryClient.invalidateQueries({ queryKey: ["clickup-graph"] });
+        } catch (err) {
+          console.error("Error creating task:", err);
+          alert("Erro ao criar task no ClickUp");
+        }
+      } else if (node.type === 'folder') {
+        const folderId = node.data.folderId as string;
+        const name = prompt('Nome da nova Lista:');
+        if (!name) return;
+
+        const quarterInput = prompt('Trimestre (Q1, Q2, Q3 ou Q4):', selectedQuarter || 'Q1');
+        if (!quarterInput) return;
+
+        const quarter = quarterInput.toUpperCase().trim();
+        if (!['Q1', 'Q2', 'Q3', 'Q4'].includes(quarter)) {
+          alert('Trimestre inválido! Use Q1, Q2, Q3 ou Q4.');
+          return;
+        }
+
+        try {
+          const { createList } = useGraphStore.getState();
+          const result = await createList(folderId, name, quarter);
+          
+          if (result.taskWarning) {
+            alert(result.taskWarning);
+          }
+          
+          queryClient.invalidateQueries({ queryKey: ["clickup-graph"] });
+        } catch (err) {
+          console.error("Error creating list:", err);
+          alert("Erro ao criar lista no ClickUp");
+        }
       }
+
     },
     [createTask, selectedQuarter, queryClient]
   );
+
 
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);

@@ -69,7 +69,7 @@ export async function getTasks(listId: string): Promise<ClickUpTask[]> {
   return data.tasks;
 }
 
-const TRIMESTRE_FIELD_ID = '8290f74e-4241-4eac-af4a-08018ecbbffa';
+export const TRIMESTRE_FIELD_ID = '8290f74e-4241-4eac-af4a-08018ecbbffa';
 const QUARTER_MAP: Record<string, string> = {
   Q1: '005bcc9c-0b1b-439e-b086-83ddd9957a71',
   Q2: '09bf455a-d061-41bb-8deb-11512519e841',
@@ -102,4 +102,36 @@ export async function createTask(listId: string, name: string, quarter?: string)
 
   return res.json() as Promise<ClickUpTask>;
 }
+
+export async function createList(folderId: string, name: string): Promise<ClickUpList> {
+  const res = await fetch(`${BASE_URL}/folder/${folderId}/list`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ name }),
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`ClickUp API error [${res.status}]: ${error}`);
+  }
+
+  return res.json() as Promise<ClickUpList>;
+}
+
+export async function addCustomFieldToList(listId: string, fieldId: string): Promise<any> {
+  const res = await fetch(`${BASE_URL}/list/${listId}/field/${fieldId}`, {
+    method: 'POST',
+    headers: getHeaders(),
+  });
+
+  if (!res.ok) {
+    const data = await res.json();
+    // Return the data even if it's an error so the caller can check ECODE
+    return data;
+  }
+
+  return res.json();
+}
+
+
 

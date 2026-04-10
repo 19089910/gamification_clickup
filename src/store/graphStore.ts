@@ -33,8 +33,9 @@ interface GraphStore {
   setSidebarOpen: (open: boolean) => void;
   setQuarter: (q: Quarter | null) => void;
   
-  // New: task creation
+  // New: task and list creation
   createTask: (listId: string, name: string, quarter: string | null) => Promise<any>;
+  createList: (folderId: string, name: string, quarter: string | null) => Promise<any>;
 }
 
 export const useGraphStore = create<GraphStore>((set, get) => ({
@@ -88,5 +89,30 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       throw error;
     }
   },
+
+  createList: async (folderId, name, quarter) => {
+    set({ isLoading: true });
+    try {
+      const res = await fetch('/api/clickup/lists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId, name, quarter }),
+      });
+      
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || 'Failed to create list');
+      }
+
+      set({ isLoading: false });
+      return result; // contains { list, taskCreated, taskWarning }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      set({ error: message, isLoading: false });
+      throw error;
+    }
+  },
 }));
+
 
