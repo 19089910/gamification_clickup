@@ -12,6 +12,7 @@ export interface FolderNodeData {
   label: string;
   folderId: string;
   taskCount: string;
+  color?: string;
   [key: string]: unknown;
 }
 

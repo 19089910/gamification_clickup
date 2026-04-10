@@ -101,6 +101,7 @@ export interface ClickUpTask {
   space: { id: string };
   subtasks?: ClickUpTask[];
   dependencies?: ClickUpDependency[];
+  custom_fields?: ClickUpCustomField[];
 }
 
 export interface ClickUpTag {
@@ -116,6 +117,17 @@ export interface ClickUpDependency {
   type: number;
   date_created: string;
   userid: string;
+}
+
+export interface ClickUpCustomField {
+  id: string;
+  name: string;
+  type: string;
+  type_config: any;
+  date_created: string;
+  hide_from_guests: boolean;
+  value?: any;
+  required: boolean;
 }
 
 // API Response wrappers
