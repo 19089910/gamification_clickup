@@ -24,6 +24,11 @@ const NodeDetailPanel = dynamic(() => import('@/components/ui/NodeDetailPanel'),
   ssr: false,
 });
 
+const EditTaskModal = dynamic(() => import('@/components/ui/EditTaskModal'), {
+  ssr: false,
+});
+
+
 function MapView() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -120,7 +125,9 @@ function MapView() {
 
         {!isLoading && !isError && <GraphCanvas />}
         <NodeDetailPanel />
+        <EditTaskModal />
       </div>
+
     </div>
   );
 }

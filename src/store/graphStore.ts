@@ -33,9 +33,19 @@ interface GraphStore {
   setSidebarOpen: (open: boolean) => void;
   setQuarter: (q: Quarter | null) => void;
   
-  // New: task and list creation
+  // New: task and list creation/update
   createTask: (listId: string, name: string, quarter: string | null) => Promise<any>;
   createList: (folderId: string, name: string, quarter: string | null) => Promise<any>;
+  updateTask: (taskId: string, updates: { name?: string; quarter?: string }) => Promise<any>;
+
+  // UI state for editing
+  editTaskModal: {
+    isOpen: boolean;
+    taskId: string;
+    name: string;
+    quarter: string;
+  };
+  setEditTaskModal: (data: Partial<GraphStore['editTaskModal']>) => void;
 }
 
 export const useGraphStore = create<GraphStore>((set, get) => ({
@@ -47,6 +57,13 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   spaceId: '',
   isSidebarOpen: false,
   selectedQuarter: getCurrentQuarter(),
+  
+  editTaskModal: {
+    isOpen: false,
+    taskId: '',
+    name: '',
+    quarter: '',
+  },
 
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
@@ -65,6 +82,10 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   setSpaceId: (id) => set({ spaceId: id }),
   setSidebarOpen: (open) => set({ isSidebarOpen: open }),
   setQuarter: (q) => set({ selectedQuarter: q }),
+  
+  setEditTaskModal: (data) => set({ 
+    editTaskModal: { ...get().editTaskModal, ...data } 
+  }),
 
   createTask: async (listId, name, quarter) => {
     set({ isLoading: true });
@@ -113,6 +134,31 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       throw error;
     }
   },
+
+  updateTask: async (taskId, updates) => {
+    set({ isLoading: true });
+    try {
+      const res = await fetch(`/api/clickup/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update task');
+      }
+
+      const result = await res.json();
+      set({ isLoading: false });
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      set({ error: message, isLoading: false });
+      throw error;
+    }
+  },
 }));
+
 
 

@@ -43,7 +43,18 @@ export default function GraphCanvas() {
 
   const onNodeDoubleClick = useCallback(
     async (_: React.MouseEvent, node: AppNode) => {
-      if (node.type === 'list') {
+      if (node.type === 'task') {
+        const { setEditTaskModal } = useGraphStore.getState();
+        const quarterTag = node.data.tags?.find(t => ['Q1', 'Q2', 'Q3', 'Q4'].includes(t.name.toUpperCase()));
+        const currentQuarter = quarterTag ? quarterTag.name.toUpperCase() : (selectedQuarter || 'Q1');
+
+        setEditTaskModal({
+          isOpen: true,
+          taskId: node.data.taskId as string,
+          name: node.data.label as string,
+          quarter: currentQuarter,
+        });
+      } else if (node.type === 'list') {
         const listId = node.data.listId as string;
         const name = prompt('Nome da nova task:');
         if (!name) return;
@@ -83,10 +94,10 @@ export default function GraphCanvas() {
           alert("Erro ao criar lista no ClickUp");
         }
       }
-
     },
     [createTask, selectedQuarter, queryClient]
   );
+
 
 
   const onPaneClick = useCallback(() => {

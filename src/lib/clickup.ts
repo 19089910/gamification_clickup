@@ -126,12 +126,52 @@ export async function addCustomFieldToList(listId: string, fieldId: string): Pro
 
   if (!res.ok) {
     const data = await res.json();
-    // Return the data even if it's an error so the caller can check ECODE
     return data;
   }
 
   return res.json();
 }
+
+export async function updateTask(
+  taskId: string,
+  updates: {
+    name?: string;
+    quarter?: string;
+  }
+): Promise<any> {
+  // 1. Update name if provided
+  if (updates.name) {
+    const res = await fetch(`${BASE_URL}/task/${taskId}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ name: updates.name }),
+    });
+
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error(`Update Task Name error [${res.status}]: ${error}`);
+    }
+  }
+
+  // 2. Update quarter if provided
+  if (updates.quarter && QUARTER_MAP[updates.quarter]) {
+    const res = await fetch(`${BASE_URL}/task/${taskId}/field/${TRIMESTRE_FIELD_ID}`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        value: QUARTER_MAP[updates.quarter],
+      }),
+    });
+
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error(`Update Task Quarter error [${res.status}]: ${error}`);
+    }
+  }
+
+  return { success: true };
+}
+
 
 
 
