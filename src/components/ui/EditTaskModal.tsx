@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useGraphStore } from "@/store/graphStore";
 import { useQueryClient } from "@tanstack/react-query";
+import { GraphApiResponse } from "@/hooks/useClickUpData";
 
 export default function EditTaskModal() {
   const { editTaskModal, setEditTaskModal, updateTask } = useGraphStore();
@@ -26,8 +27,37 @@ export default function EditTaskModal() {
       if (quarter !== editTaskModal.quarter) updates.quarter = quarter;
 
       if (Object.keys(updates).length > 0) {
-        await updateTask(editTaskModal.taskId, updates);
-        queryClient.invalidateQueries({ queryKey: ["clickup-graph"] });
+        const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
+        const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
+
+        try {
+          // 1. Optimistic Update
+          queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
+            if (!oldData) return oldData;
+            const newListTasksMap = { ...oldData.listTasksMap };
+            let taskFound = false;
+            for (const lid in newListTasksMap) {
+              const idx = newListTasksMap[lid].findIndex(t => t.id === editTaskModal.taskId);
+              if (idx !== -1) {
+                newListTasksMap[lid][idx] = { ...newListTasksMap[lid][idx], ...(updates.name ? { name: updates.name } : {}) };
+                taskFound = true; break;
+              }
+            }
+            return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
+          });
+
+          // 2. API Call
+          await updateTask(editTaskModal.taskId, updates);
+        } catch (error) {
+          console.error("Save failed:", error);
+          // 3. Rollback
+          if (previousData) {
+            queryClient.setQueryData(queryKey, previousData);
+          }
+          // 4. Recovery
+          queryClient.invalidateQueries({ queryKey: ["clickup-graph"] });
+          alert("Falha ao salvar alterações - Revertendo.");
+        }
       }
       
       setEditTaskModal({ isOpen: false });

@@ -4,6 +4,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { TaskNodeData, ListNodeData, FolderNodeData, SpaceNodeData } from '@/types/graph';
+import { GraphApiResponse } from '@/hooks/useClickUpData';
+import { ClickUpTask, ClickUpList } from '@/types/clickup';
+import { TRIMESTRE_FIELD_ID } from '@/lib/clickup';
 
 function formatDate(timestamp: string | null): string {
   if (!timestamp) return '—';
@@ -89,12 +92,40 @@ export default function NodeDetailPanel() {
     const task = selectedNode.data as TaskNodeData;
     if (!localName.trim()) return;
 
+    const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
+    const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
+
     setIsSaving(true);
     try {
-      await updateTask(task.taskId as string, { name: localName, quarter: localQuarter });
-      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+      const updates = { name: localName, quarter: localQuarter };
+      
+      // 1. Optimistic Update: Update React Query cache immediately
+      queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
+        if (!oldData) return oldData;
+        const newListTasksMap = { ...oldData.listTasksMap };
+        let taskFound = false;
+
+        for (const listId in newListTasksMap) {
+          const taskIndex = newListTasksMap[listId].findIndex(t => t.id === task.taskId);
+          if (taskIndex !== -1) {
+            newListTasksMap[listId][taskIndex] = { ...newListTasksMap[listId][taskIndex], name: localName };
+            taskFound = true;
+            break;
+          }
+        }
+        return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
+      });
+
+      // 2. API Call
+      await updateTask(task.taskId as string, updates);
     } catch (err) {
       console.error('Failed to update task:', err);
+      // 3. Rollback: Restore previous state if API fails
+      if (previousData) {
+        queryClient.setQueryData(queryKey, previousData);
+      }
+      // 4. Recovery: Force a fresh fetch from ClickUp to be 100% sure
+      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
     } finally {
       setIsSaving(false);
     }
@@ -110,12 +141,32 @@ export default function NodeDetailPanel() {
     if (selectedNode.type !== 'list') return;
     if (!localName.trim()) return;
     const list = selectedNode.data as ListNodeData;
+    const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
+    const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
+
     setIsSaving(true);
     try {
+      // 1. Optimistic Update
+      queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
+        if (!oldData) return oldData;
+        const newFolderless = oldData.folderlessLists.map(l => l.id === list.listId ? { ...l, name: localName } : l);
+        const newFolderListsMap = { ...oldData.folderListsMap };
+        for (const fId in newFolderListsMap) {
+          newFolderListsMap[fId] = newFolderListsMap[fId].map(l => l.id === list.listId ? { ...l, name: localName } : l);
+        }
+        return { ...oldData, folderlessLists: newFolderless, folderListsMap: newFolderListsMap };
+      });
+
+      // 2. API Call
       await updateList(list.listId as string, { name: localName });
-      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
     } catch (err) {
       console.error('Failed to rename list:', err);
+      // 3. Rollback
+      if (previousData) {
+        queryClient.setQueryData(queryKey, previousData);
+      }
+      // 4. Recovery
+      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
     } finally {
       setIsSaving(false);
     }
@@ -131,11 +182,38 @@ export default function NodeDetailPanel() {
     setLocalQuarter(newQ);
     const task = selectedNode.data as TaskNodeData;
     setIsSaving(true);
+    const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
+    const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
+
     try {
+      // 1. Optimistic Update
+      queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
+        if (!oldData) return oldData;
+        const newListTasksMap = { ...oldData.listTasksMap };
+        let taskFound = false;
+
+        for (const listId in newListTasksMap) {
+          const taskIndex = newListTasksMap[listId].findIndex(t => t.id === task.taskId);
+          if (taskIndex !== -1) {
+            // Mocking name update (quarter would be more complex but name change triggers re-layout)
+            newListTasksMap[listId][taskIndex] = { ...newListTasksMap[listId][taskIndex], name: localName };
+            taskFound = true;
+            break;
+          }
+        }
+        return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
+      });
+
+      // 2. API Call
       await updateTask(task.taskId as string, { name: localName, quarter: newQ });
-      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
     } catch (err) {
       console.error('Failed to update task quarter:', err);
+      // 3. Rollback
+      if (previousData) {
+        queryClient.setQueryData(queryKey, previousData);
+      }
+      // 4. Recovery
+      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
     } finally {
       setIsSaving(false);
     }

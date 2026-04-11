@@ -15,6 +15,7 @@ import "@xyflow/react/dist/style.css";
 import { useGraphStore } from "@/store/graphStore";
 import { AppNode } from "@/types/graph";
 import { useQueryClient } from "@tanstack/react-query";
+import { GraphApiResponse } from "@/hooks/useClickUpData";
 import SpaceNode from "./nodes/SpaceNode";
 import FolderNode from "./nodes/FolderNode";
 import ListNode from "./nodes/ListNode";
@@ -73,10 +74,21 @@ export default function GraphCanvas() {
       if (parentType === 'list') {
         // Create task immediately with active quarter
         try {
-          await createTask(clickUpId, name, selectedQuarter);
-          queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+          const newTask = await createTask(clickUpId, name, selectedQuarter);
+          
+          // Local Sync: Update cache after success
+          queryClient.setQueryData(['clickup-graph', useGraphStore.getState().spaceId], (oldData: GraphApiResponse | undefined) => {
+            if (!oldData) return oldData;
+            const newListTasksMap = { ...oldData.listTasksMap };
+            const listTasks = newListTasksMap[clickUpId] || [];
+            newListTasksMap[clickUpId] = [...listTasks, newTask];
+            return { ...oldData, listTasksMap: newListTasksMap };
+          });
         } catch (err) {
           console.error('Error creating task:', err);
+          // Recovery: Force full refetch if creation fails to avoid ghost nodes or state mismatch
+          queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+          alert("Erro ao criar tarefa. Sincronizando com ClickUp...");
         }
       } else if (parentType === 'folder') {
         // Open quarter picker modal to finish list creation

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
+import { GraphApiResponse } from '@/hooks/useClickUpData';
 
 export default function QuarterPickerModal() {
   const { quarterPickerModal, setQuarterPickerModal, createList } = useGraphStore();
@@ -20,12 +21,30 @@ export default function QuarterPickerModal() {
         quarterPickerModal.listName,
         selectedQ,
       );
+      
       if (result?.taskWarning) {
         console.warn(result.taskWarning);
       }
-      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+      
+      // Local Sync: Update cache after success
+      queryClient.setQueryData(['clickup-graph', useGraphStore.getState().spaceId], (oldData: GraphApiResponse | undefined) => {
+        if (!oldData || !result.list) return oldData;
+        const newList = result.list;
+        const folderId = quarterPickerModal.folderId;
+        const newFolderListsMap = { ...oldData.folderListsMap };
+        if (folderId) {
+          const folderLists = newFolderListsMap[folderId] || [];
+          newFolderListsMap[folderId] = [...folderLists, newList];
+        }
+        const newListTasksMap = { ...oldData.listTasksMap };
+        newListTasksMap[newList.id] = result.taskCreated ? [result.taskCreated] : [];
+        return { ...oldData, folderListsMap: newFolderListsMap, listTasksMap: newListTasksMap };
+      });
     } catch (err) {
       console.error('Error creating list:', err);
+      // Recovery: If something went wrong, force a full refresh from ClickUp
+      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+      alert("Erro ao criar lista. Recarregando dados...");
     } finally {
       setIsSaving(false);
       setQuarterPickerModal({ isOpen: false, listName: '', folderId: '', tempNodeId: '' });

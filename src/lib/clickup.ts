@@ -169,7 +169,7 @@ export async function updateTask(
     }
   }
 
-  return { success: true };
+  return { success: true, ...updates };
 }
 
 export async function updateList(

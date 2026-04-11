@@ -5,7 +5,7 @@ import { transformClickUpToGraph, SpaceInfo } from "@/lib/graph-transformer";
 import { getLayoutedElements } from "@/lib/layout";
 import { ClickUpFolder, ClickUpList, ClickUpTask } from "@/types/clickup";
 
-interface GraphApiResponse {
+export interface GraphApiResponse {
   folders: ClickUpFolder[];
   folderlessLists: ClickUpList[];
   folderListsMap: Record<string, ClickUpList[]>;
