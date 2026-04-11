@@ -36,7 +36,7 @@ export function useClickUpData(space: SpaceInfo) {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["clickup-graph", space.id],
     queryFn: () => fetchGraphData(space.id),
-    staleTime: 5 * 60 * 1000, // 5 min cache
+    staleTime: 0, // Fresh data on every refetch/invalidation
     retry: 2,
     enabled: !!space.id,
   });
@@ -60,8 +60,22 @@ export function useClickUpData(space: SpaceInfo) {
       selectedQuarter
     );
 
-    setFullGraph(rawNodes, rawEdges);
+    // Preserve the user's collapse state when only the quarter filter changed.
+    // New nodes (not yet in the graph) keep their default from the transformer.
+    const existingCollapse = new Map(
+      useGraphStore.getState().fullNodes.map(n => [n.id, n.data.collapsed])
+    );
+
+    const preservedNodes = rawNodes.map(n => {
+      if (existingCollapse.has(n.id)) {
+        return { ...n, data: { ...n.data, collapsed: existingCollapse.get(n.id) } };
+      }
+      return n;
+    }) as typeof rawNodes;
+
+    setFullGraph(preservedNodes, rawEdges);
   }, [data, space, setFullGraph, selectedQuarter]);
+
 
   // Effect to update visible graph whenever fullNodes or fullEdges change
   useEffect(() => {

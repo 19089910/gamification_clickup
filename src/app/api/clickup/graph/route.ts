@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { getFolders, getFolderlessLists, getLists, getTasks } from '@/lib/clickup';
 import { ClickUpList, ClickUpTask } from '@/types/clickup';
 

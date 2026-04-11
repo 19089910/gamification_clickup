@@ -110,16 +110,19 @@ export default function GraphCanvas() {
       const type = selectedNode.type;
       if (type !== 'folder' && type !== 'list') return;
 
+      // Close the detail panel so it doesn't steal focus from the temp node input
+      setSelectedNode(null);
+
       // Ensure parent folder is expanded so the temp node is visible
       if (selectedNode.data.collapsed) {
         expandPathToNode(selectedNode.id);
-        // Wait a tick for the store to update
         setTimeout(() => addTempNode(selectedNode.id, type as 'folder' | 'list'), 50);
       } else {
         addTempNode(selectedNode.id, type as 'folder' | 'list');
       }
     }
-  }, [selectedNode, addTempNode, expandPathToNode]);
+  }, [selectedNode, setSelectedNode, addTempNode, expandPathToNode]);
+
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: AppNode) => {

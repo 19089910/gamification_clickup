@@ -26,7 +26,7 @@ function getHeaders(): HeadersInit {
 async function fetchClickUp<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: getHeaders(),
-    next: { revalidate: 60 }, // Cache for 60 seconds on Next.js side
+    cache: 'no-store', // Disable server-side caching for fresh data
   });
 
   if (!res.ok) {

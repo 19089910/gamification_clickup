@@ -12,6 +12,45 @@ function formatDate(timestamp: string | null): string {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
+// ─── Extracted to module level — prevents remounting on parent re-renders ────
+interface InlineNameEditorProps {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  placeholder: string;
+  disabled: boolean;
+  isSaving: boolean;
+}
+
+function InlineNameEditor({
+  inputRef,
+  value,
+  onChange,
+  onKeyDown,
+  placeholder,
+  disabled,
+  isSaving,
+}: InlineNameEditorProps) {
+  return (
+    <>
+      <div className="detail-inline-edit">
+        <input
+          ref={inputRef}
+          className="detail-title-input"
+          value={value}
+          onChange={onChange}
+          onKeyDown={onKeyDown}
+          placeholder={placeholder}
+          disabled={disabled}
+        />
+        {isSaving && <span className="detail-saving">💾</span>}
+      </div>
+      <p className="detail-hint-sm">↵ Enter para salvar</p>
+    </>
+  );
+}
+
 export default function NodeDetailPanel() {
   const { selectedNode, isSidebarOpen, setSidebarOpen, updateTask, updateList, selectedQuarter } = useGraphStore();
   const queryClient = useQueryClient();
@@ -40,7 +79,6 @@ export default function NodeDetailPanel() {
     }
   }, [selectedNode, selectedQuarter]);
 
-
   if (!isSidebarOpen || !selectedNode) return null;
 
   const { type, data } = selectedNode;
@@ -67,6 +105,27 @@ export default function NodeDetailPanel() {
     if (e.key === 'Escape') setSidebarOpen(false);
   };
 
+  // ─── List save ───────────────────────────────────────────
+  const handleSaveList = async () => {
+    if (selectedNode.type !== 'list') return;
+    if (!localName.trim()) return;
+    const list = selectedNode.data as ListNodeData;
+    setIsSaving(true);
+    try {
+      await updateList(list.listId as string, { name: localName });
+      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+    } catch (err) {
+      console.error('Failed to rename list:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleListKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); await handleSaveList(); }
+    if (e.key === 'Escape') setSidebarOpen(false);
+  };
+
   const handleQuarterChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newQ = e.target.value;
     setLocalQuarter(newQ);
@@ -81,34 +140,6 @@ export default function NodeDetailPanel() {
       setIsSaving(false);
     }
   };
-
-  // ─── Inline edit block (shared between task + list) ──────
-  const InlineNameEditor = ({
-    placeholder,
-    onSave,
-  }: {
-    placeholder: string;
-    onSave: () => void;
-  }) => (
-    <>
-      <div className="detail-inline-edit">
-        <input
-          ref={inputRef}
-          className="detail-title-input"
-          value={localName}
-          onChange={(e) => setLocalName(e.target.value)}
-          onKeyDown={async (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); await onSave(); }
-            if (e.key === 'Escape') setSidebarOpen(false);
-          }}
-          placeholder={placeholder}
-          disabled={isSaving}
-        />
-        {isSaving && <span className="detail-saving">💾</span>}
-      </div>
-      <p className="detail-hint-sm">↵ Enter para salvar</p>
-    </>
-  );
 
   return (
     <aside className="detail-panel">
@@ -156,20 +187,13 @@ export default function NodeDetailPanel() {
             </div>
 
             <InlineNameEditor
+              inputRef={inputRef}
+              value={localName}
+              onChange={(e) => setLocalName(e.target.value)}
+              onKeyDown={handleListKeyDown}
               placeholder="Nome da lista..."
-              onSave={async () => {
-                if (!localName.trim()) return;
-                const list = selectedNode.data as ListNodeData;
-                setIsSaving(true);
-                try {
-                  await updateList(list.listId as string, { name: localName });
-                  queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
-                } catch (err) {
-                  console.error('Failed to rename list:', err);
-                } finally {
-                  setIsSaving(false);
-                }
-              }}
+              disabled={isSaving}
+              isSaving={isSaving}
             />
 
             <div className="detail-section">
@@ -207,8 +231,13 @@ export default function NodeDetailPanel() {
             </div>
 
             <InlineNameEditor
+              inputRef={inputRef}
+              value={localName}
+              onChange={(e) => setLocalName(e.target.value)}
+              onKeyDown={handleTaskKeyDown}
               placeholder="Nome da task..."
-              onSave={handleSaveTask}
+              disabled={isSaving}
+              isSaving={isSaving}
             />
 
             {/* Quarter selector */}
