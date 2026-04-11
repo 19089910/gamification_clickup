@@ -61,7 +61,7 @@ interface GraphStore {
   // New: task and list creation/update
   createTask: (listId: string, name: string, quarter: string | null) => Promise<any>;
   createList: (folderId: string, name: string, quarter: string | null) => Promise<any>;
-  updateTask: (taskId: string, updates: { name?: string; quarter?: string }) => Promise<any>;
+  updateTask: (taskId: string, updates: { name?: string; quarter?: string; status?: string }) => Promise<any>;
   updateList: (listId: string, updates: { name?: string }) => Promise<any>;
 
 

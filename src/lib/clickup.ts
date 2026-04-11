@@ -26,7 +26,7 @@ function getHeaders(): HeadersInit {
 async function fetchClickUp<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: getHeaders(),
-    cache: 'no-store', // Disable server-side caching for fresh data
+    cache: 'no-store',
   });
 
   if (!res.ok) {
@@ -40,6 +40,10 @@ async function fetchClickUp<T>(path: string): Promise<T> {
 export async function getTeams(): Promise<ClickUpTeam[]> {
   const data = await fetchClickUp<TeamsResponse>('/team');
   return data.teams;
+}
+
+export async function getMe(): Promise<any> {
+  return fetchClickUp<{ user: any }>('/user');
 }
 
 export async function getSpaces(teamId: string): Promise<ClickUpSpace[]> {
@@ -77,8 +81,57 @@ export const QUARTER_MAP: Record<string, string> = {
   Q4: 'ab3e5ed2-8ff7-4c33-a222-281a2e4b841a',
 };
 
-export async function createTask(listId: string, name: string, quarter?: string): Promise<ClickUpTask> {
+// Mapeamento baseado nos logs reais do workspace (Usando os nomes exatos que o ClickUp espera)
+export const STATUS_CONFIG = [
+  {
+    category: 'Não Iniciado',
+    statuses: [
+      { id: 'planning', label: 'PLANNING', color: '#87909e' },
+    ]
+  },
+  {
+    category: 'Ativo',
+    statuses: [
+      { id: 'in progress', label: 'EM PROGRESSO', color: '#5f55ee' },
+      { id: 'at risk', label: 'AT RISK', color: '#e16b16' },
+      { id: 'update required', label: 'UPDATE REQUIRED', color: '#f8ae00' },
+      { id: 'on hold', label: 'ON HOLD', color: '#aa8d80' },
+    ]
+  },
+  {
+    category: 'Feito',
+    statuses: [
+      { id: 'complete', label: 'CONCLUÍDO', color: '#0f9d9f' },
+    ]
+  }
+];
+
+// Helper para buscar status no config por ID ou por Nome
+export function getStatusFromConfig(statusAttr: string) {
+  if (!statusAttr) return null;
+  const s = statusAttr.toLowerCase();
+  for (const group of STATUS_CONFIG) {
+    const found = group.statuses.find(item => 
+      item.id === statusAttr || 
+      item.label.toLowerCase() === s || 
+      item.id.split('_').pop()?.toLowerCase() === s
+    );
+    if (found) return found;
+  }
+  return null;
+}
+
+export async function createTask(
+  listId: string,
+  name: string,
+  quarter?: string,
+  assignees?: (string | number)[]
+): Promise<ClickUpTask> {
   const body: any = { name };
+
+  if (assignees && assignees.length > 0) {
+    body.assignees = assignees;
+  }
 
   if (quarter && QUARTER_MAP[quarter]) {
     body.custom_fields = [
@@ -137,19 +190,48 @@ export async function updateTask(
   updates: {
     name?: string;
     quarter?: string;
+    status?: string;
   }
 ): Promise<any> {
-  // 1. Update name if provided
-  if (updates.name) {
-    const res = await fetch(`${BASE_URL}/task/${taskId}`, {
+  // 1. Update name or status if provided (via PUT /task/{id})
+  if (updates.name || updates.status) {
+    const body: any = {};
+    if (updates.name) body.name = updates.name;
+    
+    let statusToSend = updates.status;
+    let labelFallback = '';
+
+    if (updates.status) {
+      const config = getStatusFromConfig(updates.status);
+      if (config) {
+        statusToSend = config.id;
+        labelFallback = config.label.toLowerCase();
+      }
+    }
+
+    if (statusToSend) body.status = statusToSend;
+
+    // Primeira tentativa (preferencialmente por ID)
+    let res = await fetch(`${BASE_URL}/task/${taskId}`, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify({ name: updates.name }),
+      body: JSON.stringify(body),
     });
+
+    // Segunda tentativa (Fallback por nome se o ID falhar)
+    if (!res.ok && res.status === 400 && labelFallback) {
+      console.warn(`Status ID failed for task ${taskId}, retrying with label: ${labelFallback}`);
+      body.status = labelFallback;
+      res = await fetch(`${BASE_URL}/task/${taskId}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(body),
+      });
+    }
 
     if (!res.ok) {
       const error = await res.text();
-      throw new Error(`Update Task Name error [${res.status}]: ${error}`);
+      throw new Error(`Update Task General error [${res.status}]: ${error}`);
     }
   }
 

@@ -6,7 +6,7 @@ import { useGraphStore } from '@/store/graphStore';
 import { TaskNodeData, ListNodeData, FolderNodeData, SpaceNodeData } from '@/types/graph';
 import { GraphApiResponse } from '@/hooks/useClickUpData';
 import { ClickUpTask, ClickUpList } from '@/types/clickup';
-import { TRIMESTRE_FIELD_ID, QUARTER_MAP } from '@/lib/clickup';
+import { TRIMESTRE_FIELD_ID, QUARTER_MAP, STATUS_CONFIG, getStatusFromConfig } from '@/lib/clickup';
 
 function formatDate(timestamp: string | null): string {
   if (!timestamp) return '—';
@@ -61,6 +61,7 @@ export default function NodeDetailPanel() {
   // Shared edit state
   const [localName, setLocalName] = useState('');
   const [localQuarter, setLocalQuarter] = useState<string>('');
+  const [localStatus, setLocalStatus] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -74,6 +75,7 @@ export default function NodeDetailPanel() {
       // Read the quarter stored from custom_fields in the transformer — never fall back to hardcoded 'Q1'
       const resolvedQuarter = task.quarter || selectedQuarter || '';
       setLocalQuarter(resolvedQuarter);
+      setLocalStatus(task.status.toLowerCase());
     }
 
     if (selectedNode.type === 'list') {
@@ -250,6 +252,58 @@ export default function NodeDetailPanel() {
     }
   };
 
+  const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStatusIdOrName = e.target.value;
+    setLocalStatus(newStatusIdOrName);
+    const task = selectedNode.data as TaskNodeData;
+    setIsSaving(true);
+    
+    // Buscar cor exata no nosso mapeamento consolidado
+    const statusConfig = getStatusFromConfig(newStatusIdOrName);
+    const newColor = statusConfig?.color || task.statusColor;
+    const newLabel = statusConfig?.label.toLowerCase() || newStatusIdOrName;
+
+    const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
+    const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
+
+    try {
+      // 1. Optimistic Update (Name AND Color)
+      queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
+        if (!oldData) return oldData;
+        const newListTasksMap = { ...oldData.listTasksMap };
+        let taskFound = false;
+
+        for (const listId in newListTasksMap) {
+          const taskIndex = newListTasksMap[listId].findIndex(t => t.id === task.taskId);
+          if (taskIndex !== -1) {
+            const originalTask = newListTasksMap[listId][taskIndex];
+            const updatedTask = { 
+              ...originalTask, 
+              status: { 
+                ...originalTask.status, 
+                status: newLabel, // Mantendo o label visual no cache se necessário
+                color: newColor 
+              } 
+            };
+            newListTasksMap[listId][taskIndex] = updatedTask;
+            taskFound = true;
+            break;
+          }
+        }
+        return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
+      });
+
+      // 2. API Call (Enviando o ID real do ClickUp)
+      await updateTask(task.taskId as string, { status: statusConfig?.id || newStatusIdOrName });
+    } catch (err) {
+      console.error('Failed to update task status:', err);
+      if (previousData) queryClient.setQueryData(queryKey, previousData);
+      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <aside className="detail-panel">
       <button
@@ -328,15 +382,40 @@ export default function NodeDetailPanel() {
         const task = data as TaskNodeData;
         return (
           <>
-            <div
-              className="detail-badge"
-              style={{
-                background: task.statusColor + '22',
-                color: task.statusColor,
-                borderColor: task.statusColor + '55',
-              }}
-            >
-              {task.status.toUpperCase()}
+            <div className="detail-status-container">
+              {(() => {
+                const currentConfig = getStatusFromConfig(localStatus);
+                const displayColor = currentConfig?.color || task.statusColor;
+
+                return (
+                  <select
+                    className="detail-status-select unified"
+                    value={localStatus}
+                    onChange={handleStatusChange}
+                    disabled={isSaving}
+                    style={{
+                      background: displayColor + '22',
+                      color: displayColor,
+                      borderColor: displayColor + '55',
+                    }}
+                  >
+                    {/* Fallback para status que não estão na lista */}
+                    {!currentConfig && localStatus && (
+                      <option value={localStatus}>{localStatus.toUpperCase()}</option>
+                    )}
+
+                    {STATUS_CONFIG.map((group) => (
+                      <optgroup key={group.category} label={group.category}>
+                        {group.statuses.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                );
+              })()}
             </div>
 
             <InlineNameEditor

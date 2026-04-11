@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createTask } from '@/lib/clickup';
+import { createTask, getMe } from '@/lib/clickup';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,7 +9,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'listId and name are required' }, { status: 400 });
     }
 
-    const task = await createTask(listId, name, quarter);
+    // Buscar o usuário logado para atribuir como responsável automático
+    let assignees: number[] = [];
+    try {
+      const me = await getMe();
+      if (me?.user?.id) {
+        assignees = [me.user.id];
+      }
+    } catch (err) {
+      console.warn('Could not fetch user for default assignee:', err);
+    }
+
+    const task = await createTask(listId, name, quarter, assignees);
     return NextResponse.json(task);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

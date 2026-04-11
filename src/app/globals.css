@@ -1315,6 +1315,55 @@ button {
   color: var(--text-2);
 }
 
+/* ── Status Selector ── */
+.detail-status-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.detail-status-select {
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 999px; /* Pill shape like a badge */
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 12px;
+  outline: none;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.detail-status-select.unified {
+  border-width: 1px;
+}
+
+.detail-status-select:hover:not(:disabled) {
+  border-color: var(--border-3);
+  color: var(--text-1);
+  background: var(--surface-3);
+}
+
+.detail-status-select optgroup {
+  background: var(--bg);
+  color: var(--text-3);
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.detail-status-select option {
+  background: var(--surface-1);
+  color: var(--text-1);
+  font-weight: 400;
+  text-transform: none;
+  padding: 4px;
+}
+
 /* ============================================================
    LAYOUT SETTINGS PANEL
    ============================================================ */

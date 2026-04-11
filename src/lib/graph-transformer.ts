@@ -255,6 +255,8 @@ export function transformClickUpToGraph(
             taskId: task.id,
             status: task.status?.status ?? '',
             statusColor: task.status?.color ?? '#999',
+            // DEBUG: Log do objeto de status real do ClickUp
+            rawStatus: task.status,
             priority: task.priority?.priority ?? null,
             priorityColor: task.priority?.color ?? null,
             dueDate: task.due_date ?? null,
