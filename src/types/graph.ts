@@ -44,20 +44,33 @@ export interface TaskNodeData {
   url: string;
   assignees: string[];
   tags: { name: string; bg: string; fg: string }[];
+  quarter: string | null;  // resolved from ClickUp custom_fields
   state: NodeState;
   collapsed: boolean;
   [key: string]: unknown;
 }
 
 
+
+export interface TempNodeData {
+  label: string;
+  isTemp: boolean;
+  parentId: string;
+  parentType: 'folder' | 'list';
+  collapsed: boolean;
+  [key: string]: unknown;
+}
+
 // Node types (discriminated union)
 export type SpaceNode = Node<SpaceNodeData, 'space'>;
 export type FolderNode = Node<FolderNodeData, 'folder'>;
 export type ListNode = Node<ListNodeData, 'list'>;
 export type TaskNode = Node<TaskNodeData, 'task'>;
+export type TempNode = Node<TempNodeData, 'temp'>;
 
-export type AppNode = SpaceNode | FolderNode | ListNode | TaskNode;
+export type AppNode = SpaceNode | FolderNode | ListNode | TaskNode | TempNode;
 export type AppEdge = Edge;
+
 
 // Graph state
 export interface GraphData {

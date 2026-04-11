@@ -265,8 +265,10 @@ export function transformClickUpToGraph(
               bg: t.tag_bg,
               fg: t.tag_fg
             })) ?? [],
+            quarter: taskQuarter ?? null,  // resolved from custom_fields
             state: taskState,
             collapsed: getDefaultCollapsed('task'),
+
           },
         });
 

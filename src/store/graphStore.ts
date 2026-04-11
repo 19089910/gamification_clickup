@@ -45,6 +45,8 @@ interface GraphStore {
   createTask: (listId: string, name: string, quarter: string | null) => Promise<any>;
   createList: (folderId: string, name: string, quarter: string | null) => Promise<any>;
   updateTask: (taskId: string, updates: { name?: string; quarter?: string }) => Promise<any>;
+  updateList: (listId: string, updates: { name?: string }) => Promise<any>;
+
 
 
   // UI state for editing
@@ -59,6 +61,19 @@ interface GraphStore {
   // Hierarchical controls
   toggleNodeCollapsed: (nodeId: string) => void;
   expandPathToNode: (nodeId: string) => void;
+
+  // Temp node for inline creation
+  addTempNode: (parentId: string, parentType: 'folder' | 'list') => string;
+  removeTempNode: (nodeId: string) => void;
+
+  // Quarter picker modal (for creating lists inline)
+  quarterPickerModal: {
+    isOpen: boolean;
+    listName: string;
+    folderId: string;
+    tempNodeId: string;
+  };
+  setQuarterPickerModal: (data: Partial<GraphStore['quarterPickerModal']>) => void;
 }
 
 
@@ -181,7 +196,32 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     }
   },
 
+  updateList: async (listId, updates) => {
+    set({ isLoading: true });
+    try {
+      const res = await fetch(`/api/clickup/lists/${listId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update list');
+      }
+
+      const result = await res.json();
+      set({ isLoading: false });
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      set({ error: message, isLoading: false });
+      throw error;
+    }
+  },
+
   toggleNodeCollapsed: (nodeId) => {
+
     set((state) => ({
       fullNodes: state.fullNodes.map((node) => {
         if (node.id !== nodeId) return node;
@@ -223,7 +263,64 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       return { fullNodes: newFullNodes as AppNode[] };
     });
   },
+
+  // Quarter picker modal
+  quarterPickerModal: {
+    isOpen: false,
+    listName: '',
+    folderId: '',
+    tempNodeId: '',
+  },
+
+  setQuarterPickerModal: (data) => set({
+    quarterPickerModal: { ...get().quarterPickerModal, ...data },
+  }),
+
+  // Temp node helpers — operate on visible nodes only (temp nodes are UI-only)
+  addTempNode: (parentId, parentType) => {
+    const tempId = `temp-${Date.now()}`;
+
+    // Find parent position in visible nodes
+    const parentNode = get().nodes.find(n => n.id === parentId);
+    const parentX = parentNode?.position.x ?? 0;
+    const parentY = parentNode?.position.y ?? 0;
+
+    const tempNode = {
+      id: tempId,
+      type: 'temp' as const,
+      position: { x: parentX + 300, y: parentY },
+      data: {
+        label: '',
+        isTemp: true,
+        parentId,
+        parentType,
+        collapsed: false,
+      },
+    } as AppNode;
+
+    const tempEdge = {
+      id: `temp-edge-${tempId}`,
+      source: parentId,
+      target: tempId,
+      style: { stroke: '#555', strokeDasharray: '5 3', strokeWidth: 1 },
+    } as AppEdge;
+
+    set((state) => ({
+      nodes: [...state.nodes, tempNode],
+      edges: [...state.edges, tempEdge],
+    }));
+
+    return tempId;
+  },
+
+  removeTempNode: (nodeId) => {
+    set((state) => ({
+      nodes: state.nodes.filter(n => n.id !== nodeId),
+      edges: state.edges.filter(e => e.source !== nodeId && e.target !== nodeId),
+    }));
+  },
 }));
+
 
 
 

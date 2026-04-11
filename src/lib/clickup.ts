@@ -172,6 +172,20 @@ export async function updateTask(
   return { success: true };
 }
 
+export async function updateList(
+  listId: string,
+  updates: { name?: string }
+): Promise<any> {
+  const res = await fetch(`${BASE_URL}/list/${listId}`, {
+    method: 'PUT',
+    headers: getHeaders(),
+    body: JSON.stringify(updates),
+  });
 
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Update List error [${res.status}]: ${error}`);
+  }
 
-
+  return res.json();
+}

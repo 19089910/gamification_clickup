@@ -1031,4 +1031,286 @@ button {
   right: -10px;
 }
 
+/* ============================================================
+   INLINE EDIT — NODE DETAIL PANEL
+   ============================================================ */
 
+.detail-inline-edit {
+  position: relative;
+  margin-bottom: 4px;
+}
+
+.detail-title-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--border-2);
+  color: var(--text-1);
+  font-size: 18px;
+  font-weight: 600;
+  padding: 6px 2px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.detail-title-input:focus {
+  border-bottom-color: var(--purple-lg);
+}
+
+.detail-saving {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  animation: pulse 1s infinite;
+}
+
+.detail-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-bottom: 16px;
+}
+
+.detail-hint kbd {
+  background: var(--surface-3);
+  border: 1px solid var(--border-3);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.detail-hint-sm {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+  margin-bottom: 12px;
+}
+
+.detail-quarter-select {
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  color: var(--text-1);
+  padding: 4px 10px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.detail-quarter-select:focus {
+  border-color: var(--purple-lg);
+}
+
+/* ============================================================
+   TEMP NODE (INLINE CREATION)
+   ============================================================ */
+
+.temp-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1.5px dashed var(--border-3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 200px;
+  position: relative;
+}
+
+.temp-task {
+  border-color: #f59e0b88;
+}
+
+.temp-list {
+  border-color: #10b98188;
+}
+
+.temp-node-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.temp-node-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-1);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.temp-node-input::placeholder {
+  color: var(--text-3);
+}
+
+/* ============================================================
+   QUARTER PICKER MODAL
+   ============================================================ */
+
+.qpicker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+.qpicker-modal {
+  background: var(--surface-1);
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  padding: 28px 32px;
+  width: 340px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: slideUp 0.2s ease;
+}
+
+.qpicker-header {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.qpicker-icon {
+  font-size: 28px;
+  margin-top: 2px;
+}
+
+.qpicker-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin: 0 0 4px;
+}
+
+.qpicker-name {
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 0;
+  font-style: italic;
+}
+
+.qpicker-label {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.qpicker-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.qpicker-option {
+  background: var(--surface-2);
+  border: 1.5px solid var(--border-2);
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 0;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.qpicker-option:hover {
+  border-color: #a855f7;
+  color: var(--text-1);
+}
+
+.qpicker-option.active {
+  background: #7c3aed22;
+  border-color: #a855f7;
+  color: #c084fc;
+  box-shadow: 0 0 12px #7c3aed44;
+}
+
+.qpicker-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.qpicker-cancel {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  color: var(--text-2);
+  padding: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.qpicker-cancel:hover {
+  color: var(--text-1);
+  border-color: var(--border-3);
+}
+
+.qpicker-confirm {
+  flex: 2;
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.qpicker-confirm:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px #7c3aed55;
+}
+
+.qpicker-confirm:disabled,
+.qpicker-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   GRAPH KEYBOARD SHORTCUTS LEGEND
+   ============================================================ */
+
+.graph-shortcuts {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.graph-shortcuts span {
+  font-size: 11px;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.graph-shortcuts kbd {
+  background: var(--surface-3);
+  border: 1px solid var(--border-3);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 10px;
+  color: var(--text-2);
+}

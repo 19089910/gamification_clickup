@@ -24,7 +24,7 @@ const NodeDetailPanel = dynamic(() => import('@/components/ui/NodeDetailPanel'),
   ssr: false,
 });
 
-const EditTaskModal = dynamic(() => import('@/components/ui/EditTaskModal'), {
+const QuarterPickerModal = dynamic(() => import('@/components/ui/QuarterPickerModal'), {
   ssr: false,
 });
 
@@ -125,7 +125,7 @@ function MapView() {
 
         {!isLoading && !isError && <GraphCanvas />}
         <NodeDetailPanel />
-        <EditTaskModal />
+        <QuarterPickerModal />
       </div>
 
     </div>

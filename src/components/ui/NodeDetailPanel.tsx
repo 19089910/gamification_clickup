@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { TaskNodeData, ListNodeData, FolderNodeData, SpaceNodeData } from '@/types/graph';
 
@@ -12,11 +13,102 @@ function formatDate(timestamp: string | null): string {
 }
 
 export default function NodeDetailPanel() {
-  const { selectedNode, isSidebarOpen, setSidebarOpen } = useGraphStore();
+  const { selectedNode, isSidebarOpen, setSidebarOpen, updateTask, updateList, selectedQuarter } = useGraphStore();
+  const queryClient = useQueryClient();
+
+  // Shared edit state
+  const [localName, setLocalName] = useState('');
+  const [localQuarter, setLocalQuarter] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync local state whenever the selected node changes
+  useEffect(() => {
+    if (!selectedNode) return;
+
+    if (selectedNode.type === 'task') {
+      const task = selectedNode.data as TaskNodeData;
+      setLocalName(task.label as string);
+      // Read the quarter stored from custom_fields in the transformer — never fall back to hardcoded 'Q1'
+      const resolvedQuarter = task.quarter || selectedQuarter || '';
+      setLocalQuarter(resolvedQuarter);
+    }
+
+    if (selectedNode.type === 'list') {
+      const list = selectedNode.data as ListNodeData;
+      setLocalName(list.label as string);
+    }
+  }, [selectedNode, selectedQuarter]);
+
 
   if (!isSidebarOpen || !selectedNode) return null;
 
   const { type, data } = selectedNode;
+
+  // ─── Task save ───────────────────────────────────────────
+  const handleSaveTask = async () => {
+    if (selectedNode.type !== 'task') return;
+    const task = selectedNode.data as TaskNodeData;
+    if (!localName.trim()) return;
+
+    setIsSaving(true);
+    try {
+      await updateTask(task.taskId as string, { name: localName, quarter: localQuarter });
+      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+    } catch (err) {
+      console.error('Failed to update task:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleTaskKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); await handleSaveTask(); }
+    if (e.key === 'Escape') setSidebarOpen(false);
+  };
+
+  const handleQuarterChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newQ = e.target.value;
+    setLocalQuarter(newQ);
+    const task = selectedNode.data as TaskNodeData;
+    setIsSaving(true);
+    try {
+      await updateTask(task.taskId as string, { name: localName, quarter: newQ });
+      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+    } catch (err) {
+      console.error('Failed to update task quarter:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ─── Inline edit block (shared between task + list) ──────
+  const InlineNameEditor = ({
+    placeholder,
+    onSave,
+  }: {
+    placeholder: string;
+    onSave: () => void;
+  }) => (
+    <>
+      <div className="detail-inline-edit">
+        <input
+          ref={inputRef}
+          className="detail-title-input"
+          value={localName}
+          onChange={(e) => setLocalName(e.target.value)}
+          onKeyDown={async (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); await onSave(); }
+            if (e.key === 'Escape') setSidebarOpen(false);
+          }}
+          placeholder={placeholder}
+          disabled={isSaving}
+        />
+        {isSaving && <span className="detail-saving">💾</span>}
+      </div>
+      <p className="detail-hint-sm">↵ Enter para salvar</p>
+    </>
+  );
 
   return (
     <aside className="detail-panel">
@@ -28,6 +120,7 @@ export default function NodeDetailPanel() {
         ✕
       </button>
 
+      {/* ── SPACE ── */}
       {type === 'space' && (
         <>
           <div className="detail-badge space-badge-lg">SPACE</div>
@@ -36,31 +129,68 @@ export default function NodeDetailPanel() {
         </>
       )}
 
+      {/* ── FOLDER ── */}
       {type === 'folder' && (
         <>
           <div className="detail-badge folder-badge-lg">FOLDER</div>
           <h2 className="detail-title">{(data as FolderNodeData).label}</h2>
           <p className="detail-meta">{(data as FolderNodeData).taskCount} tarefas</p>
+          <p className="detail-hint">→ Pressione <kbd>Tab</kbd> para criar uma lista</p>
         </>
       )}
 
-      {type === 'list' && (
-        <>
-          <div
-            className="detail-badge"
-            style={{
-              background: (data as ListNodeData).color + '22',
-              color: (data as ListNodeData).color,
-              borderColor: (data as ListNodeData).color + '55',
-            }}
-          >
-            LIST
-          </div>
-          <h2 className="detail-title">{(data as ListNodeData).label}</h2>
-          <p className="detail-meta">{(data as ListNodeData).taskCount} tarefas nesta lista</p>
-        </>
-      )}
+      {/* ── LIST ── */}
+      {type === 'list' && (() => {
+        const list = data as ListNodeData;
+        return (
+          <>
+            <div
+              className="detail-badge"
+              style={{
+                background: list.color + '22',
+                color: list.color,
+                borderColor: list.color + '55',
+              }}
+            >
+              LIST
+            </div>
 
+            <InlineNameEditor
+              placeholder="Nome da lista..."
+              onSave={async () => {
+                if (!localName.trim()) return;
+                const list = selectedNode.data as ListNodeData;
+                setIsSaving(true);
+                try {
+                  await updateList(list.listId as string, { name: localName });
+                  queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+                } catch (err) {
+                  console.error('Failed to rename list:', err);
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
+            />
+
+            <div className="detail-section">
+              <div className="detail-row">
+                <span className="detail-key">Tarefas</span>
+                <span className="detail-value">{list.taskCount}</span>
+              </div>
+              {list.primaryQuarter && (
+                <div className="detail-row">
+                  <span className="detail-key">Trimestre</span>
+                  <span className="detail-value" style={{ color: list.color }}>{list.primaryQuarter}</span>
+                </div>
+              )}
+            </div>
+
+            <p className="detail-hint">→ Pressione <kbd>Tab</kbd> para criar uma task</p>
+          </>
+        );
+      })()}
+
+      {/* ── TASK ── */}
       {type === 'task' && (() => {
         const task = data as TaskNodeData;
         return (
@@ -75,16 +205,36 @@ export default function NodeDetailPanel() {
             >
               {task.status.toUpperCase()}
             </div>
-            <h2 className="detail-title">{task.label}</h2>
 
+            <InlineNameEditor
+              placeholder="Nome da task..."
+              onSave={handleSaveTask}
+            />
+
+            {/* Quarter selector */}
             <div className="detail-section">
+              <div className="detail-row">
+                <span className="detail-key">Trimestre</span>
+                <select
+                  className="detail-quarter-select"
+                  value={localQuarter}
+                  onChange={handleQuarterChange}
+                  disabled={isSaving}
+                >
+                  {!localQuarter && (
+                    <option value="" disabled>— sem trimestre —</option>
+                  )}
+                  <option value="Q1">Q1</option>
+                  <option value="Q2">Q2</option>
+                  <option value="Q3">Q3</option>
+                  <option value="Q4">Q4</option>
+                </select>
+              </div>
+
               {task.priority && (
                 <div className="detail-row">
                   <span className="detail-key">Prioridade</span>
-                  <span
-                    className="detail-value"
-                    style={{ color: task.priorityColor ?? '#aaa' }}
-                  >
+                  <span className="detail-value" style={{ color: task.priorityColor ?? '#aaa' }}>
                     {task.priority}
                   </span>
                 </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -19,100 +19,136 @@ import SpaceNode from "./nodes/SpaceNode";
 import FolderNode from "./nodes/FolderNode";
 import ListNode from "./nodes/ListNode";
 import TaskNode from "./nodes/TaskNode";
+import TempNode from "./nodes/TempNode";
 
 const nodeTypes: NodeTypes = {
   space: SpaceNode,
   folder: FolderNode,
   list: ListNode,
   task: TaskNode,
+  temp: TempNode as any,
 };
 
 const proOptions = { hideAttribution: false };
 
 export default function GraphCanvas() {
-  const { nodes, edges, onNodesChange, onEdgesChange, setSelectedNode, createTask, selectedQuarter } =
-    useGraphStore();
+  const {
+    nodes, edges,
+    onNodesChange, onEdgesChange,
+    setSelectedNode, selectedNode,
+    createTask, createList,
+    selectedQuarter,
+    addTempNode, removeTempNode,
+    setQuarterPickerModal,
+    expandPathToNode,
+  } = useGraphStore();
+
   const queryClient = useQueryClient();
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // ── Listen for temp node commit/cancel events (fired from TempNode component) ──
+  useEffect(() => {
+    const handleCommit = async (e: Event) => {
+      const { nodeId, name } = (e as CustomEvent).detail;
+      const tempNode = useGraphStore.getState().nodes.find(n => n.id === nodeId);
+      if (!tempNode || tempNode.type !== 'temp') return;
+
+      const nodeParentId = tempNode.data.parentId as string;
+      const parentType = tempNode.data.parentType as string;
+
+      // Look up the actual ClickUp ID from the parent node's data
+      const parentNode = useGraphStore.getState().fullNodes.find(n => n.id === nodeParentId);
+      const clickUpId = parentType === 'folder'
+        ? (parentNode?.data as any)?.folderId as string
+        : (parentNode?.data as any)?.listId as string;
+
+      if (!clickUpId) {
+        console.error('Could not resolve ClickUp ID for parent node', nodeParentId);
+        removeTempNode(nodeId);
+        return;
+      }
+
+      removeTempNode(nodeId);
+
+      if (parentType === 'list') {
+        // Create task immediately with active quarter
+        try {
+          await createTask(clickUpId, name, selectedQuarter);
+          queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+        } catch (err) {
+          console.error('Error creating task:', err);
+        }
+      } else if (parentType === 'folder') {
+        // Open quarter picker modal to finish list creation
+        setQuarterPickerModal({
+          isOpen: true,
+          listName: name,
+          folderId: clickUpId,
+          tempNodeId: nodeId,
+        });
+      }
+    };
+
+    const handleCancel = (e: Event) => {
+      const { nodeId } = (e as CustomEvent).detail;
+      removeTempNode(nodeId);
+    };
+
+    window.addEventListener('tempnode:commit', handleCommit);
+    window.addEventListener('tempnode:cancel', handleCancel);
+    return () => {
+      window.removeEventListener('tempnode:commit', handleCommit);
+      window.removeEventListener('tempnode:cancel', handleCancel);
+    };
+  }, [nodes, createTask, createList, selectedQuarter, removeTempNode, setQuarterPickerModal, queryClient]);
+
+  // ── TAB key: insert inline creation node ──
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Tab' && selectedNode) {
+      e.preventDefault();
+
+      const type = selectedNode.type;
+      if (type !== 'folder' && type !== 'list') return;
+
+      // Ensure parent folder is expanded so the temp node is visible
+      if (selectedNode.data.collapsed) {
+        expandPathToNode(selectedNode.id);
+        // Wait a tick for the store to update
+        setTimeout(() => addTempNode(selectedNode.id, type as 'folder' | 'list'), 50);
+      } else {
+        addTempNode(selectedNode.id, type as 'folder' | 'list');
+      }
+    }
+  }, [selectedNode, addTempNode, expandPathToNode]);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: AppNode) => {
+      if (node.type === 'temp') return; // Don't select temp nodes
       setSelectedNode(node);
     },
     [setSelectedNode],
   );
 
-  const onNodeDoubleClick = useCallback(
-    async (_: React.MouseEvent, node: AppNode) => {
-      if (node.type === 'task') {
-        const { setEditTaskModal } = useGraphStore.getState();
-        const quarterTag = node.data.tags?.find(t => ['Q1', 'Q2', 'Q3', 'Q4'].includes(t.name.toUpperCase()));
-        const currentQuarter = quarterTag ? quarterTag.name.toUpperCase() : (selectedQuarter || 'Q1');
-
-        setEditTaskModal({
-          isOpen: true,
-          taskId: node.data.taskId as string,
-          name: node.data.label as string,
-          quarter: currentQuarter,
-        });
-      } else if (node.type === 'list') {
-        const listId = node.data.listId as string;
-        const name = prompt('Nome da nova task:');
-        if (!name) return;
-
-        try {
-          await createTask(listId, name, selectedQuarter);
-          queryClient.invalidateQueries({ queryKey: ["clickup-graph"] });
-        } catch (err) {
-          console.error("Error creating task:", err);
-          alert("Erro ao criar task no ClickUp");
-        }
-      } else if (node.type === 'folder') {
-        const folderId = node.data.folderId as string;
-        const name = prompt('Nome da nova Lista:');
-        if (!name) return;
-
-        const quarterInput = prompt('Trimestre (Q1, Q2, Q3 ou Q4):', selectedQuarter || 'Q1');
-        if (!quarterInput) return;
-
-        const quarter = quarterInput.toUpperCase().trim();
-        if (!['Q1', 'Q2', 'Q3', 'Q4'].includes(quarter)) {
-          alert('Trimestre inválido! Use Q1, Q2, Q3 ou Q4.');
-          return;
-        }
-
-        try {
-          const { createList } = useGraphStore.getState();
-          const result = await createList(folderId, name, quarter);
-          
-          if (result.taskWarning) {
-            alert(result.taskWarning);
-          }
-          
-          queryClient.invalidateQueries({ queryKey: ["clickup-graph"] });
-        } catch (err) {
-          console.error("Error creating list:", err);
-          alert("Erro ao criar lista no ClickUp");
-        }
-      }
-    },
-    [createTask, selectedQuarter, queryClient]
-  );
-
-
-
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
+    // Remove any lingering temp nodes when clicking away
+    const { nodes: currentNodes, removeTempNode: remove } = useGraphStore.getState();
+    currentNodes.filter(n => n.type === 'temp').forEach(n => remove(n.id));
   }, [setSelectedNode]);
 
   return (
-    <div style={{ width: "100%", height: "100%" }}>
+    <div
+      ref={wrapperRef}
+      style={{ width: "100%", height: "100%" }}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
-        onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         fitView
@@ -124,7 +160,6 @@ export default function GraphCanvas() {
           style: { strokeWidth: 1.5, stroke: "#333" },
         }}
       >
-
         <Background
           variant={BackgroundVariant.Dots}
           gap={24}
@@ -146,16 +181,12 @@ export default function GraphCanvas() {
           }}
           nodeColor={(node) => {
             switch (node.type) {
-              case "space":
-                return "#7c3aed";
-              case "folder":
-                return "#0ea5e9";
-              case "list":
-                return "#10b981";
-              case "task":
-                return "#f59e0b";
-              default:
-                return "#333";
+              case "space":   return "#7c3aed";
+              case "folder":  return "#0ea5e9";
+              case "list":    return "#10b981";
+              case "task":    return "#f59e0b";
+              case "temp":    return "#555";
+              default:        return "#333";
             }
           }}
           maskColor="rgba(0,0,0,0.7)"
@@ -178,6 +209,9 @@ export default function GraphCanvas() {
               <span className="legend-dot" style={{ background: "#f59e0b" }} />
               <span>Task</span>
             </div>
+          </div>
+          <div className="graph-shortcuts">
+            <span><kbd>Tab</kbd> criar filho</span>
           </div>
         </Panel>
       </ReactFlow>
