@@ -16,11 +16,11 @@ Uma interface visual dinâmica e poderosa para gerenciar seu workspace do ClickU
 
 ## 📸 Screenshots
 
-````carousel
 ![Visão Geral do Mapa](./working_demo_v0.1_view.png)
-<!-- slide -->
+*Mapa Mental dinâmico com fluxos do ClickUp*
+
 ![Detalhes da Tarefa e Status](./working_demo_v0.2_view.png)
-````
+*Painel de Detalhes com seletor de status e cores dinâmicas*
 
 ## 🛠️ Tecnologias
 
