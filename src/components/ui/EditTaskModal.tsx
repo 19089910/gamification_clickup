@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useGraphStore } from "@/store/graphStore";
 import { useQueryClient } from "@tanstack/react-query";
 import { GraphApiResponse } from "@/hooks/useClickUpData";
+import { TRIMESTRE_FIELD_ID, QUARTER_MAP } from "@/lib/clickup";
 
 export default function EditTaskModal() {
   const { editTaskModal, setEditTaskModal, updateTask } = useGraphStore();
@@ -39,7 +40,23 @@ export default function EditTaskModal() {
             for (const lid in newListTasksMap) {
               const idx = newListTasksMap[lid].findIndex(t => t.id === editTaskModal.taskId);
               if (idx !== -1) {
-                newListTasksMap[lid][idx] = { ...newListTasksMap[lid][idx], ...(updates.name ? { name: updates.name } : {}) };
+                const originalTask = newListTasksMap[lid][idx];
+                const updatedTask = { ...originalTask, ...(updates.name ? { name: updates.name } : {}) };
+                
+                // Sync custom fields for quarter
+                if (updates.quarter && QUARTER_MAP[updates.quarter]) {
+                  const cfIndex = updatedTask.custom_fields?.findIndex(cf => cf.id === TRIMESTRE_FIELD_ID);
+                  const customFields = [...(updatedTask.custom_fields || [])];
+                  
+                  if (cfIndex !== undefined && cfIndex !== -1) {
+                    customFields[cfIndex] = { ...customFields[cfIndex], value: QUARTER_MAP[updates.quarter] };
+                  } else {
+                    customFields.push({ id: TRIMESTRE_FIELD_ID, value: QUARTER_MAP[updates.quarter] } as any);
+                  }
+                  updatedTask.custom_fields = customFields;
+                }
+
+                newListTasksMap[lid][idx] = updatedTask;
                 taskFound = true; break;
               }
             }

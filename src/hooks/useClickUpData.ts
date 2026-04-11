@@ -107,10 +107,10 @@ export function useClickUpData(space: SpaceInfo) {
   }, [isError, error, setError]);
 
   useEffect(() => {
-    if (data && !isLoading) {
+    if (data) {
       buildGraph();
     }
-  }, [data, isLoading, buildGraph]);
+  }, [data, buildGraph]);
 
   return { isLoading, isError, error };
 }

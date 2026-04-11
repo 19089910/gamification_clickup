@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Suspense, useMemo } from 'react';
+import { Suspense, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useClickUpData } from '@/hooks/useClickUpData';
 import { useGraphStore, Quarter } from '@/store/graphStore';
@@ -44,7 +44,11 @@ function MapView() {
   }), [spaceId, spaceName, spaceColor]);
 
   const { isLoading, isError, error } = useClickUpData(space);
-  const { nodes, edges, selectedQuarter, setQuarter } = useGraphStore();
+  const { nodes, edges, selectedQuarter, setQuarter, setSpaceId } = useGraphStore();
+
+  useEffect(() => {
+    if (spaceId) setSpaceId(spaceId);
+  }, [spaceId, setSpaceId]);
 
   const nodeCount = nodes.length;
   const edgeCount = edges.length;

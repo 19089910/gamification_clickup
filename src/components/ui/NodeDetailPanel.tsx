@@ -6,7 +6,7 @@ import { useGraphStore } from '@/store/graphStore';
 import { TaskNodeData, ListNodeData, FolderNodeData, SpaceNodeData } from '@/types/graph';
 import { GraphApiResponse } from '@/hooks/useClickUpData';
 import { ClickUpTask, ClickUpList } from '@/types/clickup';
-import { TRIMESTRE_FIELD_ID } from '@/lib/clickup';
+import { TRIMESTRE_FIELD_ID, QUARTER_MAP } from '@/lib/clickup';
 
 function formatDate(timestamp: string | null): string {
   if (!timestamp) return '—';
@@ -108,7 +108,23 @@ export default function NodeDetailPanel() {
         for (const listId in newListTasksMap) {
           const taskIndex = newListTasksMap[listId].findIndex(t => t.id === task.taskId);
           if (taskIndex !== -1) {
-            newListTasksMap[listId][taskIndex] = { ...newListTasksMap[listId][taskIndex], name: localName };
+            const originalTask = newListTasksMap[listId][taskIndex];
+            const updatedTask = { ...originalTask, name: localName };
+            
+            // Sync custom fields for quarter so transformer moves node immediately
+            if (localQuarter && QUARTER_MAP[localQuarter]) {
+              const cfIndex = updatedTask.custom_fields?.findIndex(cf => cf.id === TRIMESTRE_FIELD_ID);
+              const customFields = [...(updatedTask.custom_fields || [])];
+              
+              if (cfIndex !== undefined && cfIndex !== -1) {
+                customFields[cfIndex] = { ...customFields[cfIndex], value: QUARTER_MAP[localQuarter] };
+              } else {
+                customFields.push({ id: TRIMESTRE_FIELD_ID, value: QUARTER_MAP[localQuarter] } as any);
+              }
+              updatedTask.custom_fields = customFields;
+            }
+
+            newListTasksMap[listId][taskIndex] = updatedTask;
             taskFound = true;
             break;
           }
@@ -195,8 +211,23 @@ export default function NodeDetailPanel() {
         for (const listId in newListTasksMap) {
           const taskIndex = newListTasksMap[listId].findIndex(t => t.id === task.taskId);
           if (taskIndex !== -1) {
-            // Mocking name update (quarter would be more complex but name change triggers re-layout)
-            newListTasksMap[listId][taskIndex] = { ...newListTasksMap[listId][taskIndex], name: localName };
+            const originalTask = newListTasksMap[listId][taskIndex];
+            const updatedTask = { ...originalTask, name: localName };
+            
+            // Sync custom fields for quarter
+            if (newQ && QUARTER_MAP[newQ]) {
+              const cfIndex = updatedTask.custom_fields?.findIndex(cf => cf.id === TRIMESTRE_FIELD_ID);
+              const customFields = [...(updatedTask.custom_fields || [])];
+              
+              if (cfIndex !== undefined && cfIndex !== -1) {
+                customFields[cfIndex] = { ...customFields[cfIndex], value: QUARTER_MAP[newQ] };
+              } else {
+                customFields.push({ id: TRIMESTRE_FIELD_ID, value: QUARTER_MAP[newQ] } as any);
+              }
+              updatedTask.custom_fields = customFields;
+            }
+
+            newListTasksMap[listId][taskIndex] = updatedTask;
             taskFound = true;
             break;
           }

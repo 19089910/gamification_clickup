@@ -70,7 +70,7 @@ export async function getTasks(listId: string): Promise<ClickUpTask[]> {
 }
 
 export const TRIMESTRE_FIELD_ID = '8290f74e-4241-4eac-af4a-08018ecbbffa';
-const QUARTER_MAP: Record<string, string> = {
+export const QUARTER_MAP: Record<string, string> = {
   Q1: '005bcc9c-0b1b-439e-b086-83ddd9957a71',
   Q2: '09bf455a-d061-41bb-8deb-11512519e841',
   Q3: '26e22e95-38e3-4bd7-854a-d247984dfece',
