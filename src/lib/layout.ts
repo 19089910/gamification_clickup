@@ -1,36 +1,30 @@
 import dagre from 'dagre';
 import { Position } from '@xyflow/react';
 import { AppNode, AppEdge } from '@/types/graph';
-
-const NODE_WIDTH = 220;
-const NODE_HEIGHT = 80;
-
-const NODE_HEIGHTS: Record<string, number> = {
-  space: 70,
-  folder: 60,
-  list: 70,
-  task: 90,
-};
+import { LayoutSettings } from '@/store/graphStore';
 
 export function getLayoutedElements(
   nodes: AppNode[],
   edges: AppEdge[],
+  settings: LayoutSettings,
   direction: 'TB' | 'LR' = 'TB'
 ): { nodes: AppNode[]; edges: AppEdge[] } {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
+  
   dagreGraph.setGraph({
     rankdir: direction,
-    nodesep: 60,
-    ranksep: 100,
-    marginx: 40,
-    marginy: 40,
+    nodesep: settings.nodesep,
+    ranksep: settings.ranksep,
+    marginx: settings.marginx,
+    marginy: settings.marginy,
   });
 
   nodes.forEach((node) => {
+    const nodeHeight = settings.nodeHeightsByType[node.type as keyof typeof settings.nodeHeightsByType] ?? settings.nodeHeight;
     dagreGraph.setNode(node.id, {
-      width: NODE_WIDTH,
-      height: NODE_HEIGHTS[node.type ?? 'task'] ?? NODE_HEIGHT,
+      width: settings.nodeWidth,
+      height: nodeHeight,
     });
   });
 
@@ -42,12 +36,12 @@ export function getLayoutedElements(
 
   const layoutedNodes: AppNode[] = nodes.map((node) => {
     const { x, y } = dagreGraph.node(node.id);
-    const nodeHeight = NODE_HEIGHTS[node.type ?? 'task'] ?? NODE_HEIGHT;
+    const nodeHeight = settings.nodeHeightsByType[node.type as keyof typeof settings.nodeHeightsByType] ?? settings.nodeHeight;
 
     return {
       ...node,
       position: {
-        x: x - NODE_WIDTH / 2,
+        x: x - settings.nodeWidth / 2,
         y: y - nodeHeight / 2,
       },
       sourcePosition: direction === 'LR' ? Position.Right : Position.Bottom,

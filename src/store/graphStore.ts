@@ -4,6 +4,21 @@ import { AppNode, AppEdge } from '@/types/graph';
 
 export type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
 
+export interface LayoutSettings {
+  nodesep: number;
+  ranksep: number;
+  marginx: number;
+  marginy: number;
+  nodeWidth: number;
+  nodeHeight: number;
+  nodeHeightsByType: {
+    space: number;
+    folder: number;
+    list: number;
+    task: number;
+  };
+}
+
 export function getCurrentQuarter(): Quarter {
   const month = new Date().getMonth() + 1; // 1-12
   if (month <= 3) return 'Q1';
@@ -27,6 +42,7 @@ interface GraphStore {
   spaceId: string;
   isSidebarOpen: boolean;
   selectedQuarter: Quarter | null;
+  layoutSettings: LayoutSettings;
 
   setNodes: (nodes: AppNode[]) => void;
   setEdges: (edges: AppEdge[]) => void;
@@ -40,6 +56,7 @@ interface GraphStore {
   setSpaceId: (id: string) => void;
   setSidebarOpen: (open: boolean) => void;
   setQuarter: (q: Quarter | null) => void;
+  updateLayoutSettings: (settings: Partial<LayoutSettings>) => void;
   
   // New: task and list creation/update
   createTask: (listId: string, name: string, quarter: string | null) => Promise<any>;
@@ -88,6 +105,20 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   spaceId: '',
   isSidebarOpen: false,
   selectedQuarter: getCurrentQuarter(),
+  layoutSettings: {
+    nodesep: 30,
+    ranksep: 50,
+    marginx: 40,
+    marginy: 40,
+    nodeWidth: 220,
+    nodeHeight: 40,
+    nodeHeightsByType: {
+      space: 70,
+      folder: 60,
+      list: 10,
+      task: 15,
+    },
+  },
   
   editTaskModal: {
     isOpen: false,
@@ -118,6 +149,16 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   setSpaceId: (id) => set({ spaceId: id }),
   setSidebarOpen: (open) => set({ isSidebarOpen: open }),
   setQuarter: (q) => set({ selectedQuarter: q }),
+  updateLayoutSettings: (settings) => set((state) => ({
+    layoutSettings: {
+      ...state.layoutSettings,
+      ...settings,
+      nodeHeightsByType: {
+        ...state.layoutSettings.nodeHeightsByType,
+        ...(settings.nodeHeightsByType || {}),
+      },
+    },
+  })),
   
   setEditTaskModal: (data) => set({ 
     editTaskModal: { ...get().editTaskModal, ...data } 

@@ -28,6 +28,10 @@ const QuarterPickerModal = dynamic(() => import('@/components/ui/QuarterPickerMo
   ssr: false,
 });
 
+const LayoutSettingsPanel = dynamic(() => import('@/components/ui/LayoutSettingsPanel'), {
+  ssr: false,
+});
+
 
 function MapView() {
   const searchParams = useSearchParams();
@@ -130,6 +134,7 @@ function MapView() {
         {!isLoading && !isError && <GraphCanvas />}
         <NodeDetailPanel />
         <QuarterPickerModal />
+        <LayoutSettingsPanel />
       </div>
 
     </div>

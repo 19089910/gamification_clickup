@@ -30,7 +30,8 @@ export function useClickUpData(space: SpaceInfo) {
     setError, 
     selectedQuarter,
     fullNodes,
-    fullEdges
+    fullEdges,
+    layoutSettings
   } = useGraphStore();
 
   const { data, isLoading, isError, error } = useQuery({
@@ -86,12 +87,13 @@ export function useClickUpData(space: SpaceInfo) {
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
       visibleNodes,
       visibleEdges,
+      layoutSettings,
       "LR"
     );
 
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
-  }, [fullNodes, fullEdges, setNodes, setEdges]);
+  }, [fullNodes, fullEdges, layoutSettings, setNodes, setEdges]);
 
 
   useEffect(() => {
