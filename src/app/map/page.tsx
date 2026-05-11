@@ -6,13 +6,7 @@ import dynamic from 'next/dynamic';
 import { useClickUpData } from '@/hooks/useClickUpData';
 import { useGraphStore, Quarter } from '@/store/graphStore';
 import LoadingScreen from '@/components/ui/LoadingScreen';
-
-const QUARTER_BG: Record<Quarter, string> = {
-  SUMMER: '#0f172a', // azul escuro (início)
-  FALL: '#052e16', // verde escuro (crescimento)
-  WINTER: '#3f1d0b', // laranja escuro (expansão)
-  SPRING: '#2e1065', // roxo escuro (fechamento)
-};
+import { SEASON_BG } from '@/theme/seasons';
 
 // Lazy load GraphCanvas to avoid SSR issues (React Flow requires browser APIs)
 const GraphCanvas = dynamic(() => import('@/components/graph/GraphCanvas'), {
@@ -60,7 +54,7 @@ function MapView() {
   return (
     <div 
       className="map-page"
-      style={{ background: selectedQuarter ? QUARTER_BG[selectedQuarter] : undefined, transition: 'background 0.5s ease' }}
+      style={{ background: selectedQuarter ? SEASON_BG[selectedQuarter] : undefined, transition: 'background 0.5s ease' }}
     >
       {/* Top bar */}
       <header className="map-topbar">
@@ -88,10 +82,10 @@ function MapView() {
             cursor: 'pointer'
           }}
         >
-          <option value="SUMMER">SUMMER</option>
-          <option value="FALL">FALL</option>
-          <option value="WINTER">WINTER</option>
-          <option value="SPRING">SPRING</option>
+          <option value="SUMMER">☀️ SUMMER</option>
+          <option value="FALL">🍂 FALL</option>
+          <option value="WINTER">❄️ WINTER</option>
+          <option value="SPRING">🌸 SPRING</option>
         </select>
 
         {!isLoading && nodeCount > 0 && (

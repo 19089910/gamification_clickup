@@ -441,10 +441,10 @@ export default function NodeDetailPanel() {
                   {!localQuarter && (
                     <option value="" disabled>— sem trimestre —</option>
                   )}
-                  <option value="SUMMER">SUMMER</option>
-                  <option value="FALL">FALL</option>
-                  <option value="WINTER">WINTER</option>
-                  <option value="SPRING">SPRING</option>
+                  <option value="SUMMER">☀️ SUMMER</option>
+                  <option value="FALL">🍂 FALL</option>
+                  <option value="WINTER">❄️ WINTER</option>
+                  <option value="SPRING">🌸 SPRING</option>
                 </select>
               </div>
 

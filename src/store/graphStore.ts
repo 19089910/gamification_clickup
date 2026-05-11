@@ -115,7 +115,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     nodeHeightsByType: {
       space: 70,
       folder: 60,
-      list: 10,
+      list: 45,
       task: 15,
     },
   },

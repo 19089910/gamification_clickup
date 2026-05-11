@@ -7,7 +7,7 @@ Uma interface visual dinâmica e poderosa para gerenciar seu workspace do ClickU
 ## ✨ Funcionalidades Principais
 
 - **Visualização Hierárquica**: Navegue por Espaços, Pastas, Listas e Tarefas em uma estrutura de rede fluida.
-- **Gestão Trimestral (Q1-Q4)**: Filtragem temporal inteligente baseada em Custom Fields nativos do ClickUp.
+- **Gestão Sazonal (Estações do Ano)**: Filtragem temporal inteligente baseada em Custom Fields nativos do ClickUp.
 - **Edição Inline & UI Otimista**: Renomeie tarefas e mude status com feedback visual instantâneo (zero delay de rede).
 - **Status Engine**: Sincronização bidirecional de status com suporte a cores customizadas e pílulas interativas.
 - **Criação Rápida**: Adicione listas e tarefas diretamente pelo gráfico usando atalhos intuitivos (`TAB` para criar, `ENTER` para salvar).

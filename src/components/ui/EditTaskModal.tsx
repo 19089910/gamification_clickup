@@ -109,10 +109,10 @@ export default function EditTaskModal() {
           <div className="form-group">
             <label>Trimestre</label>
             <select value={quarter} onChange={(e) => setQuarter(e.target.value)}>
-              <option value="SUMMER">SUMMER</option>
-              <option value="FALL">FALL</option>
-              <option value="WINTER">WINTER</option>
-              <option value="SPRING">SPRING</option>
+              <option value="SUMMER">☀️ SUMMER</option>
+              <option value="FALL">🍂 FALL</option>
+              <option value="WINTER">❄️ WINTER</option>
+              <option value="SPRING">🌸 SPRING</option>
             </select>
           </div>
         </div>
