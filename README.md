@@ -17,10 +17,10 @@ Uma interface visual dinâmica e poderosa para gerenciar seu workspace do ClickU
 ## 📸 Screenshots
 
 ![Visão Geral do Mapa](./working_demo_v0.1_view.png)
-*Mapa Mental dinâmico com fluxos do ClickUp*
+_Mapa Mental dinâmico com fluxos do ClickUp_
 
 ![Detalhes da Tarefa e Status](./working_demo_v0.2_view.png)
-*Painel de Detalhes com seletor de status e cores dinâmicas*
+_Painel de Detalhes com seletor de status e cores dinâmicas_
 
 ## 🛠️ Tecnologias
 
@@ -33,30 +33,48 @@ Uma interface visual dinâmica e poderosa para gerenciar seu workspace do ClickU
 ## 🚀 Como Começar
 
 ### Pré-requisitos
+
 - Node.js 18+
 - ClickUp API Token
 
 ### Instalação
 
 1. Clone o repositório:
+
 ```bash
 git clone https://github.com/19089910/gamification_clickup.git
 ```
 
 2. Instale as dependências:
+
 ```bash
 npm install
 ```
 
 3. Configure o `.env.local`:
+
 ```env
-CLICKUP_API_TOKEN=seu_token_aqui
+CLICKUP_API_TOKEN=your_token_here
+
+SEASON_FIELD_ID=your_id_here
+
+SUMMER_ID=your_id_here
+FALL_ID=your_id_here
+WINTER_ID=your_id_here
+SPRING_ID=your_id_here
 ```
+### 📌 Descrição
+
+- **CLICKUP_API_TOKEN**: Token de autenticação da API do ClickUp  
+- **ESTACAO_FIELD_ID**: ID do campo personalizado de estação no ClickUp  
+- **VERAO_ID / OUTONO_ID / INVERNO_ID / PRIMAVERA_ID**: IDs correspondentes a cada estação do ano  
 
 4. Inicie o servidor de desenvolvimento:
+
 ```bash
 npm run dev
 ```
 
 ---
-*Desenvolvido para transformar produtividade em uma experiência visual irresistível.*
+
+_Desenvolvido para transformar produtividade em uma experiência visual irresistível._

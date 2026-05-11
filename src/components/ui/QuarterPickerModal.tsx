@@ -8,7 +8,7 @@ import { GraphApiResponse } from '@/hooks/useClickUpData';
 export default function QuarterPickerModal() {
   const { quarterPickerModal, setQuarterPickerModal, createList } = useGraphStore();
   const queryClient = useQueryClient();
-  const [selectedQ, setSelectedQ] = useState('Q2');
+  const [selectedQ, setSelectedQ] = useState<string>('SUMMER');
   const [isSaving, setIsSaving] = useState(false);
 
   if (!quarterPickerModal.isOpen) return null;
@@ -69,7 +69,7 @@ export default function QuarterPickerModal() {
         <p className="qpicker-label">Selecione o trimestre:</p>
 
         <div className="qpicker-options">
-          {(['Q1', 'Q2', 'Q3', 'Q4'] as const).map((q) => (
+          {(['SUMMER', 'FALL', 'WINTER', 'SPRING'] as const).map((q) => (
             <button
               key={q}
               className={`qpicker-option ${selectedQ === q ? 'active' : ''}`}

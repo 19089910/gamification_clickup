@@ -8,10 +8,10 @@ import { useGraphStore, Quarter } from '@/store/graphStore';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 
 const QUARTER_BG: Record<Quarter, string> = {
-  Q1: '#0f172a', // azul escuro (início)
-  Q2: '#052e16', // verde escuro (crescimento)
-  Q3: '#3f1d0b', // laranja escuro (expansão)
-  Q4: '#2e1065', // roxo escuro (fechamento)
+  SUMMER: '#0f172a', // azul escuro (início)
+  FALL: '#052e16', // verde escuro (crescimento)
+  WINTER: '#3f1d0b', // laranja escuro (expansão)
+  SPRING: '#2e1065', // roxo escuro (fechamento)
 };
 
 // Lazy load GraphCanvas to avoid SSR issues (React Flow requires browser APIs)
@@ -75,7 +75,7 @@ function MapView() {
         <h1 className="topbar-title">{spaceName}</h1>
         
         <select
-          value={selectedQuarter || 'Q1'}
+          value={selectedQuarter || 'SUMMER'}
           onChange={(e) => setQuarter(e.target.value as Quarter)}
           style={{
             padding: '4px 8px',
@@ -88,10 +88,10 @@ function MapView() {
             cursor: 'pointer'
           }}
         >
-          <option value="Q1">Q1</option>
-          <option value="Q2">Q2</option>
-          <option value="Q3">Q3</option>
-          <option value="Q4">Q4</option>
+          <option value="SUMMER">SUMMER</option>
+          <option value="FALL">FALL</option>
+          <option value="WINTER">WINTER</option>
+          <option value="SPRING">SPRING</option>
         </select>
 
         {!isLoading && nodeCount > 0 && (

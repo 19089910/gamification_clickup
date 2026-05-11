@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { applyNodeChanges, applyEdgeChanges, OnNodesChange, OnEdgesChange } from '@xyflow/react';
 import { AppNode, AppEdge } from '@/types/graph';
 
-export type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
+export type Quarter = 'SUMMER' | 'FALL' | 'WINTER' | 'SPRING';
 
 export interface LayoutSettings {
   nodesep: number;
@@ -21,10 +21,10 @@ export interface LayoutSettings {
 
 export function getCurrentQuarter(): Quarter {
   const month = new Date().getMonth() + 1; // 1-12
-  if (month <= 3) return 'Q1';
-  if (month <= 6) return 'Q2';
-  if (month <= 9) return 'Q3';
-  return 'Q4';
+  if (month <= 3) return 'SUMMER';
+  if (month <= 6) return 'FALL';
+  if (month <= 9) return 'WINTER';
+  return 'SPRING';
 }
 
 interface GraphStore {

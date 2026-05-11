@@ -1,6 +1,7 @@
 import { MarkerType } from '@xyflow/react';
 import { ClickUpFolder, ClickUpList, ClickUpTask } from '@/types/clickup';
 import { AppNode, AppEdge, NodeState } from '@/types/graph';
+import {TRIMESTRE_FIELD_ID } from './clickup';
 
 export interface SpaceInfo {
   id: string;
@@ -72,10 +73,10 @@ function getListQuarters(tasks: ClickUpTask[]): string[] {
 
     const val = selected.name.toUpperCase();
 
-    if (val.includes('Q1')) quarters.add('Q1');
-    if (val.includes('Q2')) quarters.add('Q2');
-    if (val.includes('Q3')) quarters.add('Q3');
-    if (val.includes('Q4')) quarters.add('Q4');
+    if (val.includes('SUMMER')) quarters.add('SUMMER');
+    if (val.includes('FALL')) quarters.add('FALL');
+    if (val.includes('WINTER')) quarters.add('WINTER');
+    if (val.includes('SPRING')) quarters.add('SPRING');
   }
 
   return Array.from(quarters);
@@ -83,7 +84,7 @@ function getListQuarters(tasks: ClickUpTask[]): string[] {
 
 // ✅ Define quarter principal (para grafo)
 function getPrimaryQuarter(quarters: string[]): string | null {
-  const order = ['Q1', 'Q2', 'Q3', 'Q4'];
+  const order = ['SUMMER', 'FALL', 'WINTER', 'SPRING'];
   return order.find(q => quarters.includes(q)) || null;
 }
 
@@ -193,7 +194,7 @@ export function transformClickUpToGraph(
       };
     });
 
-    const order = ['Q1', 'Q2', 'Q3', 'Q4'];
+    const order = ['SUMMER', 'FALL', 'WINTER', 'SPRING'];
 
     const activeQuarters = order.filter(q =>
       listInfos.some(l => l.quarters.includes(q))
@@ -283,4 +284,4 @@ export function transformClickUpToGraph(
   }
 
   return { nodes, edges };
-}
+}

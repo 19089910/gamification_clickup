@@ -10,6 +10,7 @@ import {
   ClickUpList,
   ClickUpTask,
 } from '@/types/clickup';
+import { SEASON_FIELD_ID, SEASON_MAP } from '@/config/quarters';
 
 const BASE_URL = 'https://api.clickup.com/api/v2';
 
@@ -73,12 +74,12 @@ export async function getTasks(listId: string): Promise<ClickUpTask[]> {
   return data.tasks;
 }
 
-export const TRIMESTRE_FIELD_ID = '8290f74e-4241-4eac-af4a-08018ecbbffa';
+export const TRIMESTRE_FIELD_ID = SEASON_FIELD_ID;
 export const QUARTER_MAP: Record<string, string> = {
-  Q1: '005bcc9c-0b1b-439e-b086-83ddd9957a71',
-  Q2: '09bf455a-d061-41bb-8deb-11512519e841',
-  Q3: '26e22e95-38e3-4bd7-854a-d247984dfece',
-  Q4: 'ab3e5ed2-8ff7-4c33-a222-281a2e4b841a',
+  SUMMER: SEASON_MAP.SUMMER,
+  FALL: SEASON_MAP.FALL,
+  WINTER: SEASON_MAP.WINTER,
+  SPRING: SEASON_MAP.SPRING,
 };
 
 // Mapeamento baseado nos logs reais do workspace (Usando os nomes exatos que o ClickUp espera)

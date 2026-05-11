@@ -72,7 +72,7 @@ export default function NodeDetailPanel() {
     if (selectedNode.type === 'task') {
       const task = selectedNode.data as TaskNodeData;
       setLocalName(task.label as string);
-      // Read the quarter stored from custom_fields in the transformer — never fall back to hardcoded 'Q1'
+      // Read the quarter stored from custom_fields in the transformer — never fall back to hardcoded 'SUMMER'
       const resolvedQuarter = task.quarter || selectedQuarter || '';
       setLocalQuarter(resolvedQuarter);
       setLocalStatus(task.status.toLowerCase());
@@ -441,10 +441,10 @@ export default function NodeDetailPanel() {
                   {!localQuarter && (
                     <option value="" disabled>— sem trimestre —</option>
                   )}
-                  <option value="Q1">Q1</option>
-                  <option value="Q2">Q2</option>
-                  <option value="Q3">Q3</option>
-                  <option value="Q4">Q4</option>
+                  <option value="SUMMER">SUMMER</option>
+                  <option value="FALL">FALL</option>
+                  <option value="WINTER">WINTER</option>
+                  <option value="SPRING">SPRING</option>
                 </select>
               </div>
 
