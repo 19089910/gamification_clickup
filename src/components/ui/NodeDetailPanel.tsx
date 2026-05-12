@@ -75,7 +75,8 @@ export default function NodeDetailPanel() {
       // Read the quarter stored from custom_fields in the transformer — never fall back to hardcoded 'SUMMER'
       const resolvedQuarter = task.quarter || selectedQuarter || '';
       setLocalQuarter(resolvedQuarter);
-      setLocalStatus(task.status.toLowerCase());
+      const statusConfig = getStatusFromConfig(task.status);
+      setLocalStatus(statusConfig?.id || task.status.toLowerCase());
     }
 
     if (selectedNode.type === 'list') {
@@ -281,7 +282,7 @@ export default function NodeDetailPanel() {
               ...originalTask, 
               status: { 
                 ...originalTask.status, 
-                status: newLabel, // Mantendo o label visual no cache se necessário
+                status: statusConfig?.id || newLabel, // Save ID or label in cache
                 color: newColor 
               } 
             };

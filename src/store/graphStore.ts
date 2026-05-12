@@ -131,8 +131,22 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   setEdges: (edges) => set({ edges }),
   
   setFullGraph: (nodes, edges) => {
-    set({ fullNodes: nodes, fullEdges: edges });
-    // Trigger initial layout/visibility logic (will be handled in a separate effect or manually for now)
+    const { selectedNode } = get();
+    
+    // Synchronize selectedNode with the new instance if it exists
+    let newSelectedNode = selectedNode;
+    if (selectedNode) {
+      const updated = nodes.find(n => n.id === selectedNode.id);
+      if (updated) {
+        newSelectedNode = updated;
+      }
+    }
+
+    set({ 
+      fullNodes: nodes, 
+      fullEdges: edges,
+      selectedNode: newSelectedNode 
+    });
   },
 
   onNodesChange: (changes) => {
@@ -214,6 +228,39 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   },
 
   updateTask: async (taskId, updates) => {
+    // 1. Local Optimistic Update
+    set((state) => ({
+      fullNodes: state.fullNodes.map((node) => {
+        if (node.id !== `task-${taskId}`) return node;
+        
+        // Find if status color needs update
+        let newColor = node.data.statusColor;
+        if (updates.status) {
+          const { getStatusFromConfig } = require('@/lib/clickup');
+          const config = getStatusFromConfig(updates.status);
+          if (config) newColor = config.color;
+        }
+
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            label: updates.name || node.data.label,
+            quarter: updates.quarter || node.data.quarter,
+            status: updates.status || node.data.status,
+            statusColor: newColor,
+          },
+        } as AppNode;
+      }),
+    }));
+
+    // 2. Refresh selectedNode reference
+    const { selectedNode, fullNodes } = get();
+    if (selectedNode?.id === `task-${taskId}`) {
+      const updated = fullNodes.find(n => n.id === `task-${taskId}`);
+      if (updated) set({ selectedNode: updated });
+    }
+
     set({ isLoading: true });
     try {
       const res = await fetch(`/api/clickup/tasks/${taskId}`, {
@@ -238,6 +285,27 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   },
 
   updateList: async (listId, updates) => {
+    // 1. Local Optimistic Update
+    set((state) => ({
+      fullNodes: state.fullNodes.map((node) => {
+        if (node.id !== `list-${listId}`) return node;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            label: updates.name || node.data.label,
+          },
+        } as AppNode;
+      }),
+    }));
+
+    // 2. Refresh selectedNode reference
+    const { selectedNode, fullNodes } = get();
+    if (selectedNode?.id === `list-${listId}`) {
+      const updated = fullNodes.find(n => n.id === `list-${listId}`);
+      if (updated) set({ selectedNode: updated });
+    }
+
     set({ isLoading: true });
     try {
       const res = await fetch(`/api/clickup/lists/${listId}`, {
@@ -262,16 +330,25 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   },
 
   toggleNodeCollapsed: (nodeId) => {
-
-    set((state) => ({
-      fullNodes: state.fullNodes.map((node) => {
+    set((state) => {
+      const newFullNodes = state.fullNodes.map((node) => {
         if (node.id !== nodeId) return node;
         return {
           ...node,
           data: { ...node.data, collapsed: !node.data.collapsed }
         } as AppNode;
-      }),
-    }));
+      });
+
+      // Update selectedNode if it's the one being toggled
+      const newSelectedNode = state.selectedNode?.id === nodeId 
+        ? newFullNodes.find(n => n.id === nodeId) || null
+        : state.selectedNode;
+
+      return { 
+        fullNodes: newFullNodes,
+        selectedNode: newSelectedNode
+      };
+    });
   },
 
   expandPathToNode: (nodeId) => {
@@ -301,7 +378,16 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       }
 
       expandParents(nodeId);
-      return { fullNodes: newFullNodes as AppNode[] };
+
+      // Also update selectedNode reference if it's part of the path
+      const newSelectedNode = state.selectedNode
+        ? newFullNodes.find(n => n.id === state.selectedNode?.id) || null
+        : null;
+
+      return { 
+        fullNodes: newFullNodes as AppNode[],
+        selectedNode: newSelectedNode
+      };
     });
   },
 

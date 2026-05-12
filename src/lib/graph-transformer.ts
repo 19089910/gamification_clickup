@@ -1,6 +1,7 @@
 import { MarkerType } from '@xyflow/react';
 import { ClickUpFolder, ClickUpList, ClickUpTask } from '@/types/clickup';
 import { AppNode, AppEdge, NodeState } from '@/types/graph';
+import { TRIMESTRE_FIELD_ID } from './clickup';
 import { getAreaColor } from '@/theme/areas';
 
 export interface SpaceInfo {
@@ -31,7 +32,7 @@ function getListQuarters(tasks: ClickUpTask[]): string[] {
     if (!task.custom_fields) continue;
 
     const field = task.custom_fields.find(f =>
-      f.name.toLowerCase().includes('trimestre')
+      f.id === TRIMESTRE_FIELD_ID || f.name.toLowerCase().includes('trimestre')
     );
 
     if (!field || field.value === undefined) continue;
@@ -68,7 +69,7 @@ function getNodeState(quarters: string[], selectedQuarter: string | null): NodeS
 
 function getTaskQuarter(task: ClickUpTask): string | null {
   const field = task.custom_fields?.find(f =>
-    f.name.toLowerCase().includes('trimestre')
+    f.id === TRIMESTRE_FIELD_ID || f.name.toLowerCase().includes('trimestre')
   );
 
   if (!field || field.value === undefined) return null;
