@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { useClickUpData } from '@/hooks/useClickUpData';
 import { useGraphStore, Quarter } from '@/store/graphStore';
 import LoadingScreen from '@/components/ui/LoadingScreen';
-import { SEASON_BG } from '@/theme/seasons';
+import { SEASON_BG } from '@/config/quarters';
 
 // Lazy load GraphCanvas to avoid SSR issues (React Flow requires browser APIs)
 const GraphCanvas = dynamic(() => import('@/components/graph/GraphCanvas'), {

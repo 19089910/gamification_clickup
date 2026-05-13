@@ -28,6 +28,13 @@ export const SEASON_CONFIG = [
   { id: 'SPRING' as Season, label: '🌸 SPRING', color: '#4ADE80' },
 ] as const;
 
+export const SEASON_BG: Record<Season, string> = {
+  SUMMER: '#333311',
+  FALL: '#381d0f',
+  WINTER: '#0f172a',
+  SPRING: '#472847',
+};
+
 export function getSeasonFromConfig(value: string | undefined) {
   if (!value) return null;
   return SEASON_CONFIG.find(s => s.id === value) ?? null;

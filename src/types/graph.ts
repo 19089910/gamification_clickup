@@ -87,5 +87,87 @@ export const LIST_COLORS = [
   '#a78bfa', // violet
   '#facc15', // yellow
   '#e879f9', // fuchsia
-  '#22d3ee', // cyan
 ];
+
+// --- Store Types ---
+export type Quarter = 'SUMMER' | 'FALL' | 'WINTER' | 'SPRING';
+
+export interface LayoutSettings {
+  nodesep: number;
+  ranksep: number;
+  marginx: number;
+  marginy: number;
+  nodeWidth: number;
+  nodeHeight: number;
+  nodeHeightsByType: {
+    space: number;
+    folder: number;
+    list: number;
+    task: number;
+  };
+}
+
+import { OnNodesChange, OnEdgesChange } from '@xyflow/react';
+
+export interface GraphStore {
+  // --- Core State ---
+  fullNodes: AppNode[];
+  fullEdges: AppEdge[];
+  nodes: AppNode[];
+  edges: AppEdge[];
+  selectedNode: AppNode | null;
+  spaceId: string;
+
+  // --- UI State ---
+  isLoading: boolean;
+  error: string | null;
+  isSidebarOpen: boolean;
+  selectedQuarter: Quarter | null;
+  layoutSettings: LayoutSettings;
+  
+  editTaskModal: {
+    isOpen: boolean;
+    taskId: string;
+    name: string;
+    quarter: string;
+  };
+
+  quarterPickerModal: {
+    isOpen: boolean;
+    listName: string;
+    folderId: string;
+    tempNodeId: string;
+  };
+
+  // --- Core Actions ---
+  setNodes: (nodes: AppNode[]) => void;
+  setEdges: (edges: AppEdge[]) => void;
+  setFullGraph: (nodes: AppNode[], edges: AppEdge[]) => void;
+  onNodesChange: OnNodesChange<AppNode>;
+  onEdgesChange: OnEdgesChange<AppEdge>;
+  setSelectedNode: (node: AppNode | null) => void;
+  setSpaceId: (id: string) => void;
+
+  // --- UI Actions ---
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  setSidebarOpen: (open: boolean) => void;
+  setQuarter: (q: Quarter | null) => void;
+  updateLayoutSettings: (settings: Partial<LayoutSettings>) => void;
+  setEditTaskModal: (data: Partial<GraphStore['editTaskModal']>) => void;
+  setQuarterPickerModal: (data: Partial<GraphStore['quarterPickerModal']>) => void;
+
+  // --- API Actions ---
+  createTask: (listId: string, name: string, quarter: string | null) => Promise<any>;
+  createList: (folderId: string, name: string, quarter: string | null) => Promise<any>;
+  updateTask: (taskId: string, updates: { name?: string; quarter?: string; status?: string }) => Promise<any>;
+  updateList: (listId: string, updates: { name?: string }) => Promise<any>;
+
+  // --- Hierarchical Actions ---
+  toggleNodeCollapsed: (nodeId: string) => void;
+  expandPathToNode: (nodeId: string) => void;
+
+  // --- Temp Node Helpers ---
+  addTempNode: (parentId: string, parentType: 'folder' | 'list') => string;
+  removeTempNode: (nodeId: string) => void;
+}
