@@ -241,6 +241,13 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
           if (config) newColor = config.color;
         }
 
+        // Optimistically calculate state based on new quarter
+        let newState = node.data.state;
+        if (updates.quarter) {
+          const sq = state.selectedQuarter;
+          newState = (!sq || updates.quarter === sq) ? 'active' : 'inactive';
+        }
+
         return {
           ...node,
           data: {
@@ -249,6 +256,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
             quarter: updates.quarter || node.data.quarter,
             status: updates.status || node.data.status,
             statusColor: newColor,
+            state: newState,
           },
         } as AppNode;
       }),

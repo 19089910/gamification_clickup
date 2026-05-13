@@ -68,22 +68,6 @@ const TaskNode = memo<NodeProps<TaskNodeType>>(({ data, selected }) => {
         <div className="task-due">📅 {formatDate(data.dueDate as string)}</div>
       )}
 
-      {Array.isArray(data.tags) && data.tags.length > 0 && (
-        <div className="task-tags">
-          {(data.tags as { name: string; bg: string; fg: string }[])
-            .slice(0, 2)
-            .map((tag) => (
-              <span
-                key={tag.name}
-                className="task-tag"
-                style={{ background: tag.bg, color: tag.fg }}
-              >
-                {tag.name}
-              </span>
-            ))}
-        </div>
-      )}
-
       <Handle type="source" position={Position.Right} />
     </div>
   );
