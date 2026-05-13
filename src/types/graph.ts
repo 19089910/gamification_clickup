@@ -160,8 +160,9 @@ export interface GraphStore {
   // --- API Actions ---
   createTask: (listId: string, name: string, quarter: string | null) => Promise<any>;
   createList: (folderId: string, name: string, quarter: string | null) => Promise<any>;
-  updateTask: (taskId: string, updates: { name?: string; quarter?: string; status?: string }) => Promise<any>;
+  updateTask: (taskId: string, updates: { name?: string; quarter?: string; status?: string; tags?: string[] }) => Promise<any>;
   updateList: (listId: string, updates: { name?: string }) => Promise<any>;
+  updateNodeTags: (taskId: string, tags: string[]) => void;
 
   // --- Hierarchical Actions ---
   toggleNodeCollapsed: (nodeId: string) => void;

@@ -73,6 +73,7 @@ export async function updateTask(
     name?: string;
     quarter?: Season;
     status?: string;
+    tags?: string[];
   }
 ): Promise<any> {
   // 1. Update name or status if provided (via PUT /task/{id})
@@ -133,6 +134,13 @@ export async function updateTask(
     }
   }
 
+  // 3. Update tags if provided
+  if (updates.tags && updates.tags.length > 0) {
+    for (const tag of updates.tags) {
+      await addTagToTask(taskId, tag);
+    }
+  }
+
   return { success: true, ...updates };
 }
 
@@ -152,4 +160,18 @@ export async function updateList(
   }
 
   return res.json();
+}
+
+export async function addTagToTask(
+  taskId: string,
+  tagName: string
+): Promise<void> {
+  const res = await fetch(
+    `${BASE_URL}/task/${taskId}/tag/${encodeURIComponent(tagName)}`,
+    { method: 'POST', headers: getHeaders() }
+  );
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Add tag error [${res.status}]: ${error}`);
+  }
 }

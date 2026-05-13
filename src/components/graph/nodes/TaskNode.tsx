@@ -3,6 +3,7 @@
 import React, { memo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { TaskNode as TaskNodeType, NodeState } from "@/types/graph";
+import { parseLabelWithBrackets } from "@/utils/label-parser";
 
 function getNodeStyle(color: string, state: NodeState | undefined, isSelected: boolean) {
   if (!state || state === 'active') {
@@ -61,7 +62,9 @@ const TaskNode = memo<NodeProps<TaskNodeType>>(({ data, selected }) => {
             {PRIORITY_LABELS[data.priority as string] ?? "⚪"}
           </span>
         )}
-        <span className="node-label task-label">{data.label as string}</span>
+        <span className="node-label task-label">
+          {parseLabelWithBrackets(data.label as string)}
+        </span>
       </div>
 
       {(data.dueDate as string | null) && (

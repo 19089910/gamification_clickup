@@ -5,9 +5,11 @@ import { TaskNodeData } from '@/types/graph';
 import { GraphApiResponse } from '@/hooks/useClickUpData';
 import { getStatusFromConfig } from '@/config/status';
 import { TRIMESTRE_FIELD_ID, SEASON_MAP, type Season } from '@/config/quarters';
+import { extractTagsFromName } from '@/utils/label-parser';
+
 
 export function useTaskDetail(node: any) {
-  const { updateTask, selectedQuarter, setSidebarOpen } = useGraphStore();
+  const { updateTask, selectedQuarter, setSidebarOpen, updateNodeTags } = useGraphStore();
   const queryClient = useQueryClient();
 
   const task = node.data as TaskNodeData;
@@ -35,11 +37,14 @@ export function useTaskDetail(node: any) {
 
     const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
     const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
+    const newTags = extractTagsFromName(localName);
+    const existingTags = (task.tags || []).map(t => t.name);
+    const tagsToAdd = newTags.filter(t => !existingTags.includes(t));
 
     setIsSaving(true);
     try {
       const updates = { name: localName, quarter: localQuarter };
-      
+      // 1. Optimistic update no React Query cache
       queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
         if (!oldData) return oldData;
         const newListTasksMap = { ...oldData.listTasksMap };
@@ -57,12 +62,17 @@ export function useTaskDetail(node: any) {
               
               if (cfIndex !== undefined && cfIndex !== -1) {
                 customFields[cfIndex] = { ...customFields[cfIndex], value: SEASON_MAP[localQuarter] };
-              } else {
+              }
+              else {
                 customFields.push({ id: TRIMESTRE_FIELD_ID, value: SEASON_MAP[localQuarter] } as any);
               }
               updatedTask.custom_fields = customFields;
             }
-
+            // 2. Optimistic update das tags no Zustand
+            if (tagsToAdd.length > 0) {
+              updateNodeTags(task.taskId, newTags);
+            }
+            
             newListTasksMap[listId][taskIndex] = updatedTask;
             taskFound = true;
             break;
@@ -70,8 +80,8 @@ export function useTaskDetail(node: any) {
         }
         return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
       });
-
-      await updateTask(task.taskId as string, updates);
+    // 3. API call
+    await updateTask(task.taskId as string, { ...updates, tags: tagsToAdd });
     } catch (err) {
       console.error('Failed to update task:', err);
       if (previousData) {

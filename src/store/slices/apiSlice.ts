@@ -2,6 +2,7 @@ import { StateCreator } from 'zustand';
 import { GraphStore } from '@/types/graph';
 import { fetchApi, updateNodeData, syncSelectedNode } from '../helpers';
 import { getStatusFromConfig } from '@/config/status';
+import { AppNode } from '@/types/graph';
 
 export const createApiSlice: StateCreator<GraphStore, [], [], Pick<GraphStore, 'createTask' | 'createList' | 'updateTask' | 'updateList'>> = (set) => ({
   createTask: (listId, name, quarter) => {
@@ -74,5 +75,24 @@ export const createApiSlice: StateCreator<GraphStore, [], [], Pick<GraphStore, '
       method: 'PATCH',
       body: JSON.stringify(updates),
     }, set);
+  },
+
+  updateNodeTags: (taskId: string, tags: string[]) => {
+  set(state => ({
+    fullNodes: state.fullNodes.map(node => {
+      if (node.id !== `task-${taskId}`) return node;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          tags: tags.map(name => ({
+            name,
+            bg: '#89898922',
+            fg: '#898989',
+          })),
+        },
+      } as AppNode;
+    }),
+  }));
   },
 });
