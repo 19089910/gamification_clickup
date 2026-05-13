@@ -56,18 +56,18 @@ npm install
 ```env
 CLICKUP_API_TOKEN=your_token_here
 
-SEASON_FIELD_ID=your_id_here
+NEXT_PUBLIC_TRIMESTRE_FIELD_ID=your_id_here
 
-SUMMER_ID=your_id_here
-FALL_ID=your_id_here
-WINTER_ID=your_id_here
-SPRING_ID=your_id_here
+NEXT_PUBLIC_SUMMER_ID=your_id_here
+NEXT_PUBLIC_FALL_ID=your_id_here
+NEXT_PUBLIC_WINTER_ID=your_id_here
+NEXT_PUBLIC_SPRING_ID=your_id_here
 ```
 ### 📌 Descrição
 
 - **CLICKUP_API_TOKEN**: Token de autenticação da API do ClickUp  
-- **ESTACAO_FIELD_ID**: ID do campo personalizado de estação no ClickUp  
-- **VERAO_ID / OUTONO_ID / INVERNO_ID / PRIMAVERA_ID**: IDs correspondentes a cada estação do ano  
+- **NEXT_PUBLIC_TRIMESTRE_FIELD_ID**: ID do campo personalizado de trimestre no ClickUp  
+- **NEXT_PUBLIC_SUMMER_ID / NEXT_PUBLIC_FALL_ID / NEXT_PUBLIC_WINTER_ID / NEXT_PUBLIC_SPRING_ID**: IDs correspondentes a cada trimestre no ClickUp  
 
 4. Inicie o servidor de desenvolvimento:
 

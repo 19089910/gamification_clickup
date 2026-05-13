@@ -7,7 +7,7 @@ import { TaskNodeData, ListNodeData, FolderNodeData, SpaceNodeData } from '@/typ
 import { GraphApiResponse } from '@/hooks/useClickUpData';
 import { ClickUpTask, ClickUpList } from '@/types/clickup';
 import { STATUS_CONFIG, getStatusFromConfig, } from '@/lib/clickup';
-import { TRIMESTRE_FIELD_ID, SEASON_MAP, type Season } from '@/config/quarters';
+import { TRIMESTRE_FIELD_ID, SEASON_CONFIG, getSeasonFromConfig, SEASON_MAP, type Season } from '@/config/quarters';
 
 function formatDate(timestamp: string | null): string {
   if (!timestamp) return '—';
@@ -416,7 +416,7 @@ export default function NodeDetailPanel() {
                     {STATUS_CONFIG.map((group) => (
                       <optgroup key={group.category} label={group.category}>
                         {group.statuses.map((s) => (
-                          <option key={s.id} value={s.id}>
+                          <option key={s.id} value={s.id} style={{ color: s.color, backgroundColor: '#0d0d0d' }}>
                             {s.label}
                           </option>
                         ))}
@@ -441,22 +441,38 @@ export default function NodeDetailPanel() {
             <div className="detail-section">
               <div className="detail-row">
                 <span className="detail-key">Trimestre</span>
-                <select
-                  className="detail-quarter-select"
-                  value={localQuarter}
-                  onChange={handleQuarterChange}
-                  disabled={isSaving}
-                >
-                  {!localQuarter && (
-                    <option value="" disabled>— sem trimestre —</option>
-                  )}
-                  <option value="SUMMER">☀️ SUMMER</option>
-                  <option value="FALL">🍂 FALL</option>
-                  <option value="WINTER">❄️ WINTER</option>
-                  <option value="SPRING">🌸 SPRING</option>
-                </select>
-              </div>
+                {(() => {
+                  const currentConfig = getSeasonFromConfig(localQuarter);
+                  const displayColor = currentConfig?.color ?? '#000000';
 
+                  return (
+                    <select
+                      className="detail-quarter-select"
+                      value={localQuarter ?? ''}
+                      onChange={handleQuarterChange}
+                      disabled={isSaving}
+                      style={{
+                        background: displayColor + '22',
+                        color: displayColor,
+                        borderColor: displayColor + '55',
+                      }}
+                    >
+                      {/* Fallback para quarter desconhecido ou ausente */}
+                      {!currentConfig && (
+                        <option value="" disabled>
+                          {localQuarter ? localQuarter.toUpperCase() : '— sem trimestre —'}
+                        </option>
+                      )}
+
+                      {SEASON_CONFIG.map((s) => (
+                        <option key={s.id} value={s.id} style={{ color: s.color, backgroundColor: '#0d0d0d' }}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })()}
+              </div>
               {task.priority && (
                 <div className="detail-row">
                   <span className="detail-key">Prioridade</span>
