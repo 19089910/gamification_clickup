@@ -14,7 +14,7 @@ const GraphCanvas = dynamic(() => import('@/components/graph/GraphCanvas'), {
   loading: () => <LoadingScreen />,
 });
 
-const NodeDetailPanel = dynamic(() => import('@/components/graph/nodes/Painel/NodeDetailPanel'), {
+const NodeDetailPanel = dynamic(() => import('@/components/graph/nodes/painel/NodeDetailPanel'), {
   ssr: false,
 });
 
