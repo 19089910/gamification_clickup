@@ -1,126 +1,14 @@
-import { MarkerType } from '@xyflow/react';
 import { ClickUpFolder, ClickUpList, ClickUpTask } from '@/types/clickup';
 import { AppNode, AppEdge, NodeState } from '@/types/graph';
-import { SEASON_MAP, TRIMESTRE_FIELD_ID } from '@/config/quarters';
 import { getAreaColor } from '@/theme/areas';
+import { getListQuarters, getPrimaryQuarter, getTaskQuarter } from './quarter-resolver';
+import { defaultEdge } from './edge-factory';
+import { cleanListName, getDefaultCollapsed, getNodeState } from '@/utils/node-utils';
 
 export interface SpaceInfo {
   id: string;
   name: string;
   color: string | null;
-}
-
-const defaultEdge = (source: string, target: string): AppEdge => ({
-  id: `${source}->${target}`,
-  source,
-  target,
-  animated: false,
-  style: { stroke: '#333', strokeWidth: 1.5 },
-  markerEnd: {
-    type: MarkerType.ArrowClosed,
-    color: '#555',
-    width: 16,
-    height: 16,
-  },
-});
-
-// ✅ Extrai múltiplos quarters das tasks
-function getListQuarters(tasks: ClickUpTask[]): string[] {
-  const quarters = new Set<string>();
-
-  for (const task of tasks) {
-    if (!task.custom_fields) continue;
-
-    const field = task.custom_fields.find(f =>
-      f.id === TRIMESTRE_FIELD_ID
-    );
-
-    if (!field || field.value === undefined) continue;
-
-    let val: string | null = null;
-
-    // Caminho normal: type_config presente (dados reais da API)
-    const options = field.type_config?.options;
-    if (options) {
-      const selected = options.find((o: any) =>
-        o.id === field.value || o.orderindex === field.value
-      );
-      val = selected?.name?.toUpperCase() ?? null;
-    }
-
-    // Fallback: campo injetado otimisticamente (sem type_config)
-    // QUARTER_MAP é { SUMMER: 'uuid-summer', FALL: 'uuid-fall', ... }
-    // field.value aqui É o UUID da estação — só precisa inverter o mapa
-    if (!val) {
-      const entry = Object.entries(SEASON_MAP).find(
-        ([, uuid]) => uuid === field.value
-      );
-      val = entry?.[0] ?? null; // 'SUMMER' | 'FALL' | 'WINTER' | 'SPRING'
-    }
-
-    if (!val) continue;
-
-    if (val.includes('SUMMER')) quarters.add('SUMMER');
-    if (val.includes('FALL')) quarters.add('FALL');
-    if (val.includes('WINTER')) quarters.add('WINTER');
-    if (val.includes('SPRING')) quarters.add('SPRING');
-  }
-
-  return Array.from(quarters);
-}
-
-// ✅ Define quarter principal (para grafo)
-function getPrimaryQuarter(quarters: string[]): string | null {
-  const order = ['SUMMER', 'FALL', 'WINTER', 'SPRING'];
-  return order.find(q => quarters.includes(q)) || null;
-}
-
-function getNodeState(quarters: string[], selectedQuarter: string | null): NodeState {
-  if (!selectedQuarter || selectedQuarter === 'All') return 'active';
-  return quarters.includes(selectedQuarter) ? 'active' : 'inactive';
-}
-
-function getTaskQuarter(task: ClickUpTask): string | null {
-  const field = task.custom_fields?.find(f =>
-    f.id === TRIMESTRE_FIELD_ID
-  );
-
-  if (!field || field.value === undefined) return null;
-
-  // Caminho normal
-  const options = field.type_config?.options;
-  if (options) {
-    const selected = options.find((o: any) =>
-      o.id === field.value || o.orderindex === field.value
-    );
-    if (selected?.name) return selected.name.toUpperCase();
-  }
-
-  // Fallback otimista
-  const entry = Object.entries(SEASON_MAP).find(([, uuid]) => uuid === field.value);
-  return entry?.[0] ?? null;
-}
-
-function cleanListName(name: string): string {
-  // Removes strings like [TAG] or (TAG) from the start/middle of the list name
-  return name.replace(/\[.*?\]|\(.*?\)/g, '').trim();
-}
-
-type NodeType = 'space' | 'folder' | 'list' | 'task';
-
-function getDefaultCollapsed(type: NodeType): boolean {
-  switch (type) {
-    case 'space':
-      return false;
-    case 'folder':
-      return true; // Folders iniciam fechados
-    case 'list':
-      return false;
-    case 'task':
-      return false;
-    default:
-      return false;
-  }
 }
 
 export function transformClickUpToGraph(

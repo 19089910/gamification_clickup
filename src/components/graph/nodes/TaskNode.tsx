@@ -29,8 +29,8 @@ function getNodeStyle(color: string, state: NodeState | undefined, isSelected: b
 const PRIORITY_LABELS: Record<string, string> = {
   urgent: "🔴",
   high: "🟠",
-  normal: "🟡",
-  low: "🔵",
+  normal: "🔵",
+  low: "⚪",
 };
 
 function formatDate(timestamp: string | null): string | null {
