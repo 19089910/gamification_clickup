@@ -4,6 +4,7 @@ import { useGraphStore } from "@/store/graphStore";
 import { transformClickUpToGraph, SpaceInfo } from "@/lib/graph-transformer";
 import { getLayoutedElements } from "@/lib/layout";
 import { ClickUpFolder, ClickUpList, ClickUpTask } from "@/types/clickup";
+import { getVisibleGraph } from "@/utils/transformer-utils";
 
 export interface GraphApiResponse {
   folders: ClickUpFolder[];
@@ -18,8 +19,6 @@ async function fetchGraphData(spaceId: string): Promise<GraphApiResponse> {
   if (!res.ok) throw new Error("Failed to fetch graph data");
   return res.json();
 }
-
-import { getVisibleGraph } from "@/lib/graph-utils";
 
 export function useClickUpData(space: SpaceInfo) {
   const { 

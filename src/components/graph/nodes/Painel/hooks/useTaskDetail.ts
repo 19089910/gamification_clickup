@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { TaskNodeData } from '@/types/graph';
 import { GraphApiResponse } from '@/hooks/useClickUpData';
-import { getStatusFromConfig } from '@/lib/clickup';
+import { getStatusFromConfig } from '@/config/status';
 import { TRIMESTRE_FIELD_ID, SEASON_MAP, type Season } from '@/config/quarters';
 
 export function useTaskDetail(node: any) {

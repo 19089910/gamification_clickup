@@ -1,6 +1,7 @@
 import { StateCreator } from 'zustand';
 import { GraphStore } from '@/types/graph';
 import { fetchApi, updateNodeData, syncSelectedNode } from '../helpers';
+import { getStatusFromConfig } from '@/config/status';
 
 export const createApiSlice: StateCreator<GraphStore, [], [], Pick<GraphStore, 'createTask' | 'createList' | 'updateTask' | 'updateList'>> = (set) => ({
   createTask: (listId, name, quarter) => {
@@ -24,7 +25,6 @@ export const createApiSlice: StateCreator<GraphStore, [], [], Pick<GraphStore, '
 
       let newColor = targetNode.data.statusColor;
       if (updates.status) {
-        const { getStatusFromConfig } = require('@/lib/clickup');
         const config = getStatusFromConfig(updates.status);
         if (config) newColor = config.color;
       }

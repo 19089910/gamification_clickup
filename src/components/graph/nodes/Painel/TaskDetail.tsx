@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { useTaskDetail } from './hooks/useTaskDetail';
 import { InlineNameEditor } from './InlineNameEditor';
 import { TaskNodeData } from '@/types/graph';
-import { STATUS_CONFIG, getStatusFromConfig } from '@/lib/clickup';
+import { STATUS_CONFIG, getStatusFromConfig } from '@/config/status';
 import { SEASON_CONFIG, getSeasonFromConfig } from '@/config/quarters';
 
 function formatDate(timestamp: string | null): string {

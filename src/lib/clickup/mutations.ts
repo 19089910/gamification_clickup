@@ -1,7 +1,7 @@
 import { ClickUpTask, ClickUpList } from '@/types/clickup';
 import { SEASON_MAP, type Season, TRIMESTRE_FIELD_ID } from '@/config/quarters';
 import { BASE_URL, getHeaders } from './api';
-import { getStatusFromConfig } from './status';
+import { getStatusFromConfig } from '@/config/status';
 
 export async function createTask(
   listId: string,
