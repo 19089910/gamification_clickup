@@ -1,7 +1,7 @@
 import { MarkerType } from '@xyflow/react';
 import { ClickUpFolder, ClickUpList, ClickUpTask } from '@/types/clickup';
 import { AppNode, AppEdge, NodeState } from '@/types/graph';
-import { TRIMESTRE_FIELD_ID } from './clickup';
+import { SEASON_MAP, TRIMESTRE_FIELD_ID } from '@/config/quarters';
 import { getAreaColor } from '@/theme/areas';
 
 export interface SpaceInfo {
@@ -32,20 +32,33 @@ function getListQuarters(tasks: ClickUpTask[]): string[] {
     if (!task.custom_fields) continue;
 
     const field = task.custom_fields.find(f =>
-      f.id === TRIMESTRE_FIELD_ID || f.name.toLowerCase().includes('trimestre')
+      f.id === TRIMESTRE_FIELD_ID
     );
 
     if (!field || field.value === undefined) continue;
 
-    const options = field.type_config?.options || [];
+    let val: string | null = null;
 
-    const selected = options.find((o: any) =>
-      o.id === field.value || o.orderindex === field.value
-    );
+    // Caminho normal: type_config presente (dados reais da API)
+    const options = field.type_config?.options;
+    if (options) {
+      const selected = options.find((o: any) =>
+        o.id === field.value || o.orderindex === field.value
+      );
+      val = selected?.name?.toUpperCase() ?? null;
+    }
 
-    if (!selected?.name) continue;
+    // Fallback: campo injetado otimisticamente (sem type_config)
+    // QUARTER_MAP é { SUMMER: 'uuid-summer', FALL: 'uuid-fall', ... }
+    // field.value aqui É o UUID da estação — só precisa inverter o mapa
+    if (!val) {
+      const entry = Object.entries(SEASON_MAP).find(
+        ([, uuid]) => uuid === field.value
+      );
+      val = entry?.[0] ?? null; // 'SUMMER' | 'FALL' | 'WINTER' | 'SPRING'
+    }
 
-    const val = selected.name.toUpperCase();
+    if (!val) continue;
 
     if (val.includes('SUMMER')) quarters.add('SUMMER');
     if (val.includes('FALL')) quarters.add('FALL');
@@ -69,18 +82,23 @@ function getNodeState(quarters: string[], selectedQuarter: string | null): NodeS
 
 function getTaskQuarter(task: ClickUpTask): string | null {
   const field = task.custom_fields?.find(f =>
-    f.id === TRIMESTRE_FIELD_ID || f.name.toLowerCase().includes('trimestre')
+    f.id === TRIMESTRE_FIELD_ID
   );
 
   if (!field || field.value === undefined) return null;
 
-  const options = field.type_config?.options || [];
+  // Caminho normal
+  const options = field.type_config?.options;
+  if (options) {
+    const selected = options.find((o: any) =>
+      o.id === field.value || o.orderindex === field.value
+    );
+    if (selected?.name) return selected.name.toUpperCase();
+  }
 
-  const selected = options.find((o: any) =>
-    o.id === field.value || o.orderindex === field.value
-  );
-
-  return selected?.name?.toUpperCase() || null;
+  // Fallback otimista
+  const entry = Object.entries(SEASON_MAP).find(([, uuid]) => uuid === field.value);
+  return entry?.[0] ?? null;
 }
 
 function cleanListName(name: string): string {

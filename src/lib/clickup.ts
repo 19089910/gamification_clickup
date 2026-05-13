@@ -10,7 +10,7 @@ import {
   ClickUpList,
   ClickUpTask,
 } from '@/types/clickup';
-import { SEASON_FIELD_ID, SEASON_MAP } from '@/config/quarters';
+import { SEASON_MAP, type Season, TRIMESTRE_FIELD_ID } from '@/config/quarters';
 
 const BASE_URL = 'https://api.clickup.com/api/v2';
 
@@ -74,13 +74,6 @@ export async function getTasks(listId: string): Promise<ClickUpTask[]> {
   return data.tasks;
 }
 
-export const TRIMESTRE_FIELD_ID = SEASON_FIELD_ID;
-export const QUARTER_MAP: Record<string, string> = {
-  SUMMER: SEASON_MAP.SUMMER,
-  FALL: SEASON_MAP.FALL,
-  WINTER: SEASON_MAP.WINTER,
-  SPRING: SEASON_MAP.SPRING,
-};
 
 // Mapeamento baseado nos logs reais do workspace (Usando os nomes exatos que o ClickUp espera)
 export const STATUS_CONFIG = [
@@ -125,7 +118,7 @@ export function getStatusFromConfig(statusAttr: string) {
 export async function createTask(
   listId: string,
   name: string,
-  quarter?: string,
+  quarter?: Season,
   assignees?: (string | number)[]
 ): Promise<ClickUpTask> {
   const body: any = { name };
@@ -134,11 +127,11 @@ export async function createTask(
     body.assignees = assignees;
   }
 
-  if (quarter && QUARTER_MAP[quarter]) {
+  if (quarter && SEASON_MAP[quarter]) {
     body.custom_fields = [
       {
         id: TRIMESTRE_FIELD_ID,
-        value: QUARTER_MAP[quarter],
+        value: SEASON_MAP[quarter],
       },
     ];
   }
@@ -190,7 +183,7 @@ export async function updateTask(
   taskId: string,
   updates: {
     name?: string;
-    quarter?: string;
+    quarter?: Season;
     status?: string;
   }
 ): Promise<any> {
@@ -237,12 +230,12 @@ export async function updateTask(
   }
 
   // 2. Update quarter if provided
-  if (updates.quarter && QUARTER_MAP[updates.quarter]) {
+  if (updates.quarter && SEASON_MAP[updates.quarter]) {
     const res = await fetch(`${BASE_URL}/task/${taskId}/field/${TRIMESTRE_FIELD_ID}`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({
-        value: QUARTER_MAP[updates.quarter],
+        value: SEASON_MAP[updates.quarter],
       }),
     });
 

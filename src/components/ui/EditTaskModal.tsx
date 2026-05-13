@@ -4,18 +4,18 @@ import React, { useState, useEffect } from "react";
 import { useGraphStore } from "@/store/graphStore";
 import { useQueryClient } from "@tanstack/react-query";
 import { GraphApiResponse } from "@/hooks/useClickUpData";
-import { TRIMESTRE_FIELD_ID, QUARTER_MAP } from "@/lib/clickup";
+import { SEASON_MAP, TRIMESTRE_FIELD_ID, type Season } from "@/config/quarters";
 
 export default function EditTaskModal() {
   const { editTaskModal, setEditTaskModal, updateTask } = useGraphStore();
   const [name, setName] = useState("");
-  const [quarter, setQuarter] = useState("");
+  const [quarter, setQuarter] = useState<Season>("SUMMER");
   const queryClient = useQueryClient();
 
   useEffect(() => {
     if (editTaskModal.isOpen) {
       setName(editTaskModal.name);
-      setQuarter(editTaskModal.quarter);
+      setQuarter(editTaskModal.quarter as Season);
     }
   }, [editTaskModal.isOpen, editTaskModal.name, editTaskModal.quarter]);
 
@@ -44,14 +44,14 @@ export default function EditTaskModal() {
                 const updatedTask = { ...originalTask, ...(updates.name ? { name: updates.name } : {}) };
                 
                 // Sync custom fields for quarter
-                if (updates.quarter && QUARTER_MAP[updates.quarter]) {
+                if (updates.quarter && SEASON_MAP[updates.quarter as Season]) {
                   const cfIndex = updatedTask.custom_fields?.findIndex(cf => cf.id === TRIMESTRE_FIELD_ID);
                   const customFields = [...(updatedTask.custom_fields || [])];
                   
                   if (cfIndex !== undefined && cfIndex !== -1) {
-                    customFields[cfIndex] = { ...customFields[cfIndex], value: QUARTER_MAP[updates.quarter] };
+                    customFields[cfIndex] = { ...customFields[cfIndex], value: SEASON_MAP[updates.quarter as Season] };
                   } else {
-                    customFields.push({ id: TRIMESTRE_FIELD_ID, value: QUARTER_MAP[updates.quarter] } as any);
+                    customFields.push({ id: TRIMESTRE_FIELD_ID, value: SEASON_MAP[updates.quarter as Season] } as any);
                   }
                   updatedTask.custom_fields = customFields;
                 }
@@ -108,7 +108,7 @@ export default function EditTaskModal() {
 
           <div className="form-group">
             <label>Trimestre</label>
-            <select value={quarter} onChange={(e) => setQuarter(e.target.value)}>
+            <select value={quarter} onChange={(e) => setQuarter(e.target.value as Season)}>
               <option value="SUMMER">☀️ SUMMER</option>
               <option value="FALL">🍂 FALL</option>
               <option value="WINTER">❄️ WINTER</option>

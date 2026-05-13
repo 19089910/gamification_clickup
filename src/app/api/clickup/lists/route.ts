@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createList, createTask, addCustomFieldToList, TRIMESTRE_FIELD_ID } from '@/lib/clickup';
+import { createList, createTask, addCustomFieldToList } from '@/lib/clickup';
+import { TRIMESTRE_FIELD_ID } from '@/config/quarters';
 
 export async function POST(req: NextRequest) {
   try {

@@ -6,7 +6,8 @@ import { useGraphStore } from '@/store/graphStore';
 import { TaskNodeData, ListNodeData, FolderNodeData, SpaceNodeData } from '@/types/graph';
 import { GraphApiResponse } from '@/hooks/useClickUpData';
 import { ClickUpTask, ClickUpList } from '@/types/clickup';
-import { TRIMESTRE_FIELD_ID, QUARTER_MAP, STATUS_CONFIG, getStatusFromConfig } from '@/lib/clickup';
+import { STATUS_CONFIG, getStatusFromConfig, } from '@/lib/clickup';
+import { TRIMESTRE_FIELD_ID, SEASON_MAP, type Season } from '@/config/quarters';
 
 function formatDate(timestamp: string | null): string {
   if (!timestamp) return '—';
@@ -60,7 +61,7 @@ export default function NodeDetailPanel() {
 
   // Shared edit state
   const [localName, setLocalName] = useState('');
-  const [localQuarter, setLocalQuarter] = useState<string>('');
+  const [localQuarter, setLocalQuarter] = useState<Season>();
   const [localStatus, setLocalStatus] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -69,12 +70,19 @@ export default function NodeDetailPanel() {
   useEffect(() => {
     if (!selectedNode) return;
 
+    function isSeason(value: string): value is Season {
+      return value in SEASON_MAP;
+    }
+
     if (selectedNode.type === 'task') {
       const task = selectedNode.data as TaskNodeData;
       setLocalName(task.label as string);
       // Read the quarter stored from custom_fields in the transformer — never fall back to hardcoded 'SUMMER'
-      const resolvedQuarter = task.quarter || selectedQuarter || '';
-      setLocalQuarter(resolvedQuarter);
+      const resolvedQuarter =
+        task.quarter && isSeason(task.quarter)
+          ? task.quarter
+          : selectedQuarter;
+      setLocalQuarter(resolvedQuarter ?? undefined);
       const statusConfig = getStatusFromConfig(task.status);
       setLocalStatus(statusConfig?.id || task.status.toLowerCase());
     }
@@ -115,14 +123,14 @@ export default function NodeDetailPanel() {
             const updatedTask = { ...originalTask, name: localName };
             
             // Sync custom fields for quarter so transformer moves node immediately
-            if (localQuarter && QUARTER_MAP[localQuarter]) {
+            if (localQuarter && SEASON_MAP[localQuarter]) {
               const cfIndex = updatedTask.custom_fields?.findIndex(cf => cf.id === TRIMESTRE_FIELD_ID);
               const customFields = [...(updatedTask.custom_fields || [])];
               
               if (cfIndex !== undefined && cfIndex !== -1) {
-                customFields[cfIndex] = { ...customFields[cfIndex], value: QUARTER_MAP[localQuarter] };
+                customFields[cfIndex] = { ...customFields[cfIndex], value: SEASON_MAP[localQuarter] };
               } else {
-                customFields.push({ id: TRIMESTRE_FIELD_ID, value: QUARTER_MAP[localQuarter] } as any);
+                customFields.push({ id: TRIMESTRE_FIELD_ID, value: SEASON_MAP[localQuarter] } as any);
               }
               updatedTask.custom_fields = customFields;
             }
@@ -197,7 +205,7 @@ export default function NodeDetailPanel() {
   };
 
   const handleQuarterChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newQ = e.target.value;
+    const newQ = e.target.value as Season;
     setLocalQuarter(newQ);
     const task = selectedNode.data as TaskNodeData;
     setIsSaving(true);
@@ -218,14 +226,14 @@ export default function NodeDetailPanel() {
             const updatedTask = { ...originalTask, name: localName };
             
             // Sync custom fields for quarter
-            if (newQ && QUARTER_MAP[newQ]) {
+            if (newQ && SEASON_MAP[newQ]) {
               const cfIndex = updatedTask.custom_fields?.findIndex(cf => cf.id === TRIMESTRE_FIELD_ID);
               const customFields = [...(updatedTask.custom_fields || [])];
               
               if (cfIndex !== undefined && cfIndex !== -1) {
-                customFields[cfIndex] = { ...customFields[cfIndex], value: QUARTER_MAP[newQ] };
+                customFields[cfIndex] = { ...customFields[cfIndex], value: SEASON_MAP[newQ] };
               } else {
-                customFields.push({ id: TRIMESTRE_FIELD_ID, value: QUARTER_MAP[newQ] } as any);
+                customFields.push({ id: TRIMESTRE_FIELD_ID, value: SEASON_MAP[newQ] } as any);
               }
               updatedTask.custom_fields = customFields;
             }
