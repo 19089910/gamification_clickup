@@ -30,21 +30,21 @@ function getNodeStyle(color: string, state: NodeState | undefined, isSelected: b
 
 const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
   const accent = data.color as string;
-  const { createTask, selectedQuarter, toggleNodeCollapsed, fullEdges, isDevList, openDevPanel } = useGraphStore();
+  const { createTask, selectedQuarter, toggleNodeCollapsed, fullEdges, openDevPanel } = useGraphStore();
   const queryClient = useQueryClient();
 
   const hasChildren = fullEdges.some(e => e.source === id);
-  const isDev = isDevList(data.listId as string);
+  const isDev = !!data.isDev;
 
   const handleCreateTask = useCallback(async (e: React.MouseEvent) => {
-    // ... same logic
-    }, [data.listId, createTask, selectedQuarter, queryClient]);
+    // Logic for task creation remains the same
+  }, [data.listId, createTask, selectedQuarter, queryClient]);
 
   const handlePrimaryAction = useCallback((e: React.MouseEvent) => {
     if (isDev) {
-      openDevPanel(data.listId as string); // action no store
+      openDevPanel(data.listId as string);
     } else {
-      handleCreateTask(e); // comportamento atual
+      handleCreateTask(e);
     }
   }, [isDev, data.listId, openDevPanel, handleCreateTask]);
 
@@ -55,7 +55,7 @@ const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
 
   return (
     <div
-      className={`list-node ${selected ? "selected" : ""}`}
+      className={`list-node ${selected ? "selected" : ""} ${isDev ? 'epic-container' : ''}`}
       style={getNodeStyle(accent, data.state as NodeState, selected)}
     >
       <Handle type="target" position={Position.Left} />
@@ -69,17 +69,18 @@ const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
       <div className="list-color-stripe" style={{ background: accent }} />
       <div className="node-content">
         <div className="node-header">
+          {isDev && <span className="epic-label">EPIC</span>}
           <span className="node-label">{data.label}</span>
-            <button
-              className={`add-task-btn ${isDev ? 'dev-mode' : ''}`}
-              onClick={handlePrimaryAction}
-              title={isDev ? 'Abrir Gerenciador Dev' : 'Criar nova task'}
-            >
-              {isDev ? '⚡' : '+'}
-            </button>
+          <button
+            className={`add-task-btn ${isDev ? 'dev-mode' : ''}`}
+            onClick={handlePrimaryAction}
+            title={isDev ? 'Abrir Gerenciador Dev' : 'Criar nova task'}
+          >
+            {isDev ? '⚡' : '+'}
+          </button>
         </div>
         <span className="node-meta" style={{ color: accent }}>
-          {data.taskCount} tasks
+          {data.taskCount} {isDev ? 'Stories' : 'tasks'}
         </span>
       </div>
       <Handle type="source" position={Position.Right} />

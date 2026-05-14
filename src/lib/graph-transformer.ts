@@ -4,6 +4,8 @@ import { getAreaColor } from '@/theme/areas';
 import { getListQuarters, getPrimaryQuarter, getTaskQuarter } from './quarter-resolver';
 import { defaultEdge } from './edge-factory';
 import { cleanListName, getDefaultCollapsed, getNodeState } from '@/utils/node-utils';
+import { isDevList } from '@/lib/dev-mode';
+import { getTaskVariant } from '@/lib/task-variant';
 
 export interface SpaceInfo {
   id: string;
@@ -70,7 +72,8 @@ export function transformClickUpToGraph(
         quarters,
         primaryQuarter,
         listNodeId: `list-${list.id}`,
-        listColor: folderColor
+        listColor: folderColor,
+        isDev: isDevList(tasks)
       };
     });
 
@@ -96,6 +99,7 @@ export function transformClickUpToGraph(
           primaryQuarter: info.primaryQuarter,
           state,
           collapsed: getDefaultCollapsed('list'),
+          isDev: info.isDev,
         },
       });
 
@@ -151,7 +155,7 @@ export function transformClickUpToGraph(
             quarter: taskQuarter ?? null,  // resolved from custom_fields
             state: taskState,
             collapsed: getDefaultCollapsed('task'),
-
+            variant: getTaskVariant(task),
           },
         });
 

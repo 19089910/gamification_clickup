@@ -560,6 +560,67 @@ button {
   transform: scale(1.1);
 }
 
+/* ── Dev Mode / Epic Styles ── */
+.list-node.epic-container {
+  border-width: 2px;
+  background: linear-gradient(135deg, #1a152e 0%, #0d0d0d 100%);
+  min-width: 200px;
+}
+
+.epic-label {
+  font-size: 9px;
+  font-weight: 800;
+  color: #a78bfa;
+  background: #7c3aed33;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.add-task-btn.dev-mode {
+  opacity: 1;
+  background: #7c3aed22;
+  border-color: #7c3aed55;
+  color: #a78bfa;
+}
+
+.add-task-btn.dev-mode:hover {
+  background: #7c3aed44;
+  border-color: #7c3aedaa;
+  box-shadow: 0 0 10px #7c3aed44;
+}
+
+.dev-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all var(--t-fast);
+}
+
+.dev-toggle:hover {
+  border-color: var(--border-3);
+  background: var(--surface-3);
+}
+
+.dev-toggle input {
+  display: none;
+}
+
+.dev-toggle-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.dev-toggle input:checked + .dev-toggle-label {
+  color: #a78bfa;
+}
+
 
 /* TASK node */
 .task-node {

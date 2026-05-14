@@ -3,6 +3,7 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useQueryClient } from '@tanstack/react-query';
 import { useClickUpData } from '@/hooks/useClickUpData';
 import { useGraphStore, Quarter } from '@/store/graphStore';
 import LoadingScreen from '@/components/ui/LoadingScreen';
@@ -42,7 +43,12 @@ function MapView() {
   }), [spaceId, spaceName, spaceColor]);
 
   const { isLoading, isError, error } = useClickUpData(space);
-  const { nodes, edges, selectedQuarter, setQuarter, setSpaceId } = useGraphStore();
+  const { nodes, edges, selectedQuarter, setQuarter, setSpaceId, setQueryClient } = useGraphStore();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    setQueryClient(queryClient);
+  }, [queryClient, setQueryClient]);
 
   useEffect(() => {
     if (spaceId) setSpaceId(spaceId);

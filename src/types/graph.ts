@@ -30,6 +30,7 @@ export interface ListNodeData {
   primaryQuarter?: string | null;
   state: NodeState;
   collapsed: boolean;
+  isDev?: boolean;
   [key: string]: unknown;
 }
 
@@ -47,6 +48,7 @@ export interface TaskNodeData {
   quarter: string | null;  // resolved from ClickUp custom_fields
   state: NodeState;
   collapsed: boolean;
+  variant?: 'default' | 'epic';
   [key: string]: unknown;
 }
 
@@ -125,6 +127,8 @@ export interface CoreSlice {
   onEdgesChange: OnEdgesChange<AppEdge>;
   setSelectedNode: (node: AppNode | null) => void;
   setSpaceId: (id: string) => void;
+  queryClient: any;
+  setQueryClient: (client: any) => void;
 }
 
 export interface UiSlice {
@@ -170,12 +174,11 @@ export interface HierarchySlice {
 }
 
 export interface DevSlice {
-  devListIds: Set<string>;
-  toggleDevList: (listId: string) => void;
-  isDevList: (listId: string) => boolean;
   devPanelListId: string | null;
+  isSyncingDevMode: boolean;
   openDevPanel: (listId: string) => void;
   closeDevPanel: () => void;
+  toggleDevMode: (listId: string, tasks: any[], enable: boolean) => Promise<void>;
 }
 
 export type GraphStore = CoreSlice & UiSlice & ApiSlice & HierarchySlice & DevSlice;

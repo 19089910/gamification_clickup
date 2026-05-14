@@ -175,3 +175,17 @@ export async function addTagToTask(
     throw new Error(`Add tag error [${res.status}]: ${error}`);
   }
 }
+
+export async function removeTagFromTask(
+  taskId: string,
+  tagName: string
+): Promise<void> {
+  const res = await fetch(
+    `${BASE_URL}/task/${taskId}/tag/${encodeURIComponent(tagName)}`,
+    { method: 'DELETE', headers: getHeaders() }
+  );
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Remove tag error [${res.status}]: ${error}`);
+  }
+}

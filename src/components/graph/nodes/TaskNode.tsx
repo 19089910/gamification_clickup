@@ -66,7 +66,11 @@ const TaskNode = memo<NodeProps<TaskNodeType>>(({ data, selected }) => {
           {parseLabelWithBrackets(data.label as string)}
         </span>
       </div>
-
+      {data.variant === 'epic' && (
+        <span className="node-meta" style={{ color: statusColor }}>
+          Story
+        </span>
+      )}
       {(data.dueDate as string | null) && (
         <div className="task-due">📅 {formatDate(data.dueDate as string)}</div>
       )}

@@ -27,4 +27,6 @@ export const createCoreSlice: StateCreator<GraphStore, [], [], CoreSlice> = (set
 
   setSelectedNode: (node) => set({ selectedNode: node, isSidebarOpen: node !== null }),
   setSpaceId: (id) => set({ spaceId: id }),
+  queryClient: null,
+  setQueryClient: (client) => set({ queryClient: client }),
 });
