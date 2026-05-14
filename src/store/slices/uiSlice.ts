@@ -16,7 +16,7 @@ export const createUiSlice: StateCreator<GraphStore, [], [], UiSlice> = (set) =>
     nodeHeight: 40,
     nodeHeightsByType: {
       space: 70,
-      folder: 60,
+      folder: 40,
       list: 45,
       task: 15,
     },

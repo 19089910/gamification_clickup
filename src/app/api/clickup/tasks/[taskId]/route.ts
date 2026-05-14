@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateList } from '@/lib/clickup';
+import { updateTask } from '@/lib/clickup';
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ taskId: string }> }
 ) {
   try {
-    const { id: listId } = await params;
+    const { taskId } = await params;
     const body = await req.json();
 
-    if (!listId) {
-      return NextResponse.json({ error: 'listId is required' }, { status: 400 });
+    if (!taskId) {
+      return NextResponse.json({ error: 'taskId is required' }, { status: 400 });
     }
 
-    const result = await updateList(listId, body);
+    const result = await updateTask(taskId, body);
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -23,7 +23,7 @@ export async function PATCH(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ taskId: string }> }
 ) {
   return PATCH(req, { params });
 }

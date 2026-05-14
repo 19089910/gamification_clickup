@@ -127,8 +127,6 @@ export interface CoreSlice {
   onEdgesChange: OnEdgesChange<AppEdge>;
   setSelectedNode: (node: AppNode | null) => void;
   setSpaceId: (id: string) => void;
-  queryClient: any;
-  setQueryClient: (client: any) => void;
 }
 
 export interface UiSlice {
@@ -178,7 +176,7 @@ export interface DevSlice {
   isSyncingDevMode: boolean;
   openDevPanel: (listId: string) => void;
   closeDevPanel: () => void;
-  toggleDevMode: (listId: string, tasks: any[], enable: boolean) => Promise<void>;
+  toggleDevMode: (listId: string, tasks: any[], enable: boolean, queryClient: any) => Promise<void>;
 }
 
 export type GraphStore = CoreSlice & UiSlice & ApiSlice & HierarchySlice & DevSlice;

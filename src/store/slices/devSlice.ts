@@ -1,6 +1,5 @@
 import { StateCreator } from 'zustand';
 import { GraphStore, DevSlice } from '@/types/graph';
-import { addTagToTask, removeTagFromTask } from '@/lib/clickup/mutations';
 
 export const createDevSlice: StateCreator<GraphStore, [], [], DevSlice> = (set, get) => ({
   devPanelListId: null,
@@ -9,18 +8,24 @@ export const createDevSlice: StateCreator<GraphStore, [], [], DevSlice> = (set, 
   openDevPanel: (listId) => set({ devPanelListId: listId }),
   closeDevPanel: () => set({ devPanelListId: null }),
 
-  toggleDevMode: async (listId, tasks, enable) => {
+  toggleDevMode: async (listId, tasks, enable, queryClient) => {
     set({ isSyncingDevMode: true });
     try {
-      if (enable) {
-        await Promise.all(tasks.map(t => addTagToTask(t.id, 'dev')));
-      } else {
-        await Promise.all(tasks.map(t => removeTagFromTask(t.id, 'dev')));
-      }
+      const method = enable ? 'POST' : 'DELETE';
       
-      const queryClient = get().queryClient;
+      // Call our internal API route which runs on the server
+      await Promise.all(tasks.map(async (t) => {
+        const res = await fetch(`/api/clickup/tasks/${t.id}/tags/dev`, {
+          method,
+        });
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(`Failed to ${method === 'POST' ? 'add' : 'remove'} tag for task ${t.id}: ${err}`);
+        }
+      }));
+      
       if (queryClient) {
-        queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+        await queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
       }
     } catch (error) {
       console.error('Error toggling dev mode:', error);

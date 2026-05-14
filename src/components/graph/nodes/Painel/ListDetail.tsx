@@ -16,6 +16,18 @@ export function ListDetail({ node }: { node: AppNode }) {
   const graphData = queryClient.getQueryData<GraphApiResponse>(["clickup-graph", spaceId]);
   const tasks = graphData?.listTasksMap[list.listId] || [];
 
+  const handleToggleDevMode = async (checked: boolean) => {
+  const confirmed = confirm(
+    checked
+      ? 'Ativar modo Dev?'
+      : 'Desativar modo Dev?'
+  );
+
+  if (!confirmed) return;
+
+  toggleDevMode(list.listId, tasks, checked, queryClient);
+};
+
   const {
     localName,
     setLocalName,
@@ -54,10 +66,13 @@ export function ListDetail({ node }: { node: AppNode }) {
               type="checkbox"
               checked={isDev}
               disabled={isSyncingDevMode}
-              onChange={(e) => toggleDevMode(list.listId, tasks, e.target.checked)}
+              onChange={(e) => handleToggleDevMode(e.target.checked)}
             />
+
             <span className="dev-toggle-label">
-              {isSyncingDevMode ? '...' : (isDev ? '⚡' : 'Dev?')}
+              {isSyncingDevMode
+                ? 'Sincronizando...'
+                : (isDev ? '⚡ Ativo' : 'Ativar?')}
             </span>
           </label>
           <span className="detail-key">Tarefas</span>

@@ -43,12 +43,7 @@ function MapView() {
   }), [spaceId, spaceName, spaceColor]);
 
   const { isLoading, isError, error } = useClickUpData(space);
-  const { nodes, edges, selectedQuarter, setQuarter, setSpaceId, setQueryClient } = useGraphStore();
-  const queryClient = useQueryClient();
-
-  useEffect(() => {
-    setQueryClient(queryClient);
-  }, [queryClient, setQueryClient]);
+  const { nodes, edges, selectedQuarter, setQuarter, setSpaceId } = useGraphStore();
 
   useEffect(() => {
     if (spaceId) setSpaceId(spaceId);
