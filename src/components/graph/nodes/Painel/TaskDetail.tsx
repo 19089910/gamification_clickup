@@ -1,9 +1,10 @@
 import React, { useRef } from 'react';
-import { useTaskDetail } from './hooks/useTaskDetail';
+import { useTaskDetail } from '@/hooks/useTaskDetail';
 import { InlineNameEditor } from './InlineNameEditor';
 import { TaskNodeData } from '@/types/graph';
 import { STATUS_CONFIG, getStatusFromConfig } from '@/config/status';
 import { SEASON_CONFIG, getSeasonFromConfig } from '@/config/quarters';
+import { AppNode } from '@/types/graph';
 
 function formatDate(timestamp: string | null): string {
   if (!timestamp) return '—';
@@ -12,7 +13,7 @@ function formatDate(timestamp: string | null): string {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-export function TaskDetail({ node }: { node: any }) {
+export function TaskDetail({ node }: { node: AppNode }) {
   const task = node.data as TaskNodeData;
   const inputRef = useRef<HTMLInputElement>(null);
   
@@ -134,7 +135,7 @@ export function TaskDetail({ node }: { node: any }) {
             <span
               key={tag.name}
               className="task-tag"
-              style={{ background: tag.bg, color: tag.fg }}
+              style={{ background: '#0d0d0d', border: '1px solid ' + tag.bg, color: tag.bg }}
             >
               {tag.name}
             </span>

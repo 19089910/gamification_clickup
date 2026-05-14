@@ -1,8 +1,8 @@
 import { StateCreator } from 'zustand';
-import { GraphStore, AppNode, AppEdge } from '@/types/graph';
+import { GraphStore, AppNode, AppEdge, HierarchySlice } from '@/types/graph';
 import { updateNodeData, syncSelectedNode } from '../helpers';
 
-export const createHierarchySlice: StateCreator<GraphStore, [], [], Pick<GraphStore, 'toggleNodeCollapsed' | 'expandPathToNode' | 'addTempNode' | 'removeTempNode'>> = (set, get) => ({
+export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySlice> = (set, get) => ({
   toggleNodeCollapsed: (nodeId) => {
     set((state) => {
       const targetNode = state.fullNodes.find(n => n.id === nodeId);

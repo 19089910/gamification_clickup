@@ -1,10 +1,13 @@
 import React, { useRef } from 'react';
-import { useListDetail } from './hooks/useListDetail';
+import { useListDetail } from '@/hooks/useListDetail';
 import { InlineNameEditor } from './InlineNameEditor';
-import { ListNodeData } from '@/types/graph';
+import { AppNode, ListNodeData } from '@/types/graph';
+import { useGraphStore } from '@/store/graphStore';
 
-export function ListDetail({ node }: { node: any }) {
+export function ListDetail({ node }: { node: AppNode }) {
   const list = node.data as ListNodeData;
+  const { toggleDevList, isDevList } = useGraphStore();
+  const isDev = isDevList(list.listId as string);
   const inputRef = useRef<HTMLInputElement>(null);
   
   const {
@@ -39,6 +42,17 @@ export function ListDetail({ node }: { node: any }) {
 
       <div className="detail-section">
         <div className="detail-row">
+          <span className="detail-key">Gerenciador Dev</span>
+          <label className="dev-toggle">
+            <input
+              type="checkbox"
+              checked={isDev}
+              onChange={() => toggleDevList(list.listId as string)}
+            />
+            <span className="dev-toggle-label">
+              {isDev ? '⚡ Dev' : 'Dev?'}
+            </span>
+          </label>
           <span className="detail-key">Tarefas</span>
           <span className="detail-value">{list.taskCount}</span>
         </div>

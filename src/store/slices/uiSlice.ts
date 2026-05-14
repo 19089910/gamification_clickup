@@ -1,8 +1,8 @@
 import { StateCreator } from 'zustand';
-import { GraphStore } from '@/types/graph';
+import { GraphStore, Quarter, LayoutSettings, UiSlice } from '@/types/graph';
 import { getCurrentQuarter } from '../helpers';
 
-export const createUiSlice: StateCreator<GraphStore, [], [], Pick<GraphStore, 'isLoading' | 'error' | 'isSidebarOpen' | 'selectedQuarter' | 'layoutSettings' | 'editTaskModal' | 'quarterPickerModal' | 'setLoading' | 'setError' | 'setSidebarOpen' | 'setQuarter' | 'updateLayoutSettings' | 'setEditTaskModal' | 'setQuarterPickerModal'>> = (set) => ({
+export const createUiSlice: StateCreator<GraphStore, [], [], UiSlice> = (set) => ({
   isLoading: false,
   error: null,
   isSidebarOpen: false,

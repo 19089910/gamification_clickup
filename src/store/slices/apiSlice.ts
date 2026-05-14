@@ -1,10 +1,10 @@
 import { StateCreator } from 'zustand';
-import { GraphStore } from '@/types/graph';
+import { GraphStore, ApiSlice } from '@/types/graph';
 import { fetchApi, updateNodeData, syncSelectedNode } from '../helpers';
 import { getStatusFromConfig } from '@/config/status';
 import { AppNode } from '@/types/graph';
 
-export const createApiSlice: StateCreator<GraphStore, [], [], Pick<GraphStore, 'createTask' | 'createList' | 'updateTask' | 'updateList'>> = (set) => ({
+export const createApiSlice: StateCreator<GraphStore, [], [], ApiSlice> = (set) => ({
   createTask: (listId, name, quarter) => {
     return fetchApi('/api/clickup/tasks', {
       method: 'POST',

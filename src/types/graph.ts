@@ -109,37 +109,15 @@ export interface LayoutSettings {
 
 import { OnNodesChange, OnEdgesChange } from '@xyflow/react';
 
-export interface GraphStore {
-  // --- Core State ---
+// --- Store Slices ---
+
+export interface CoreSlice {
   fullNodes: AppNode[];
   fullEdges: AppEdge[];
   nodes: AppNode[];
   edges: AppEdge[];
   selectedNode: AppNode | null;
   spaceId: string;
-
-  // --- UI State ---
-  isLoading: boolean;
-  error: string | null;
-  isSidebarOpen: boolean;
-  selectedQuarter: Quarter | null;
-  layoutSettings: LayoutSettings;
-  
-  editTaskModal: {
-    isOpen: boolean;
-    taskId: string;
-    name: string;
-    quarter: string;
-  };
-
-  quarterPickerModal: {
-    isOpen: boolean;
-    listName: string;
-    folderId: string;
-    tempNodeId: string;
-  };
-
-  // --- Core Actions ---
   setNodes: (nodes: AppNode[]) => void;
   setEdges: (edges: AppEdge[]) => void;
   setFullGraph: (nodes: AppNode[], edges: AppEdge[]) => void;
@@ -147,28 +125,57 @@ export interface GraphStore {
   onEdgesChange: OnEdgesChange<AppEdge>;
   setSelectedNode: (node: AppNode | null) => void;
   setSpaceId: (id: string) => void;
+}
 
-  // --- UI Actions ---
+export interface UiSlice {
+  isLoading: boolean;
+  error: string | null;
+  isSidebarOpen: boolean;
+  selectedQuarter: Quarter | null;
+  layoutSettings: LayoutSettings;
+  editTaskModal: {
+    isOpen: boolean;
+    taskId: string;
+    name: string;
+    quarter: string;
+  };
+  quarterPickerModal: {
+    isOpen: boolean;
+    listName: string;
+    folderId: string;
+    tempNodeId: string;
+  };
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setSidebarOpen: (open: boolean) => void;
   setQuarter: (q: Quarter | null) => void;
   updateLayoutSettings: (settings: Partial<LayoutSettings>) => void;
-  setEditTaskModal: (data: Partial<GraphStore['editTaskModal']>) => void;
-  setQuarterPickerModal: (data: Partial<GraphStore['quarterPickerModal']>) => void;
+  setEditTaskModal: (data: Partial<UiSlice['editTaskModal']>) => void;
+  setQuarterPickerModal: (data: Partial<UiSlice['quarterPickerModal']>) => void;
+}
 
-  // --- API Actions ---
+export interface ApiSlice {
   createTask: (listId: string, name: string, quarter: string | null) => Promise<any>;
   createList: (folderId: string, name: string, quarter: string | null) => Promise<any>;
   updateTask: (taskId: string, updates: { name?: string; quarter?: string; status?: string; tags?: string[] }) => Promise<any>;
   updateList: (listId: string, updates: { name?: string }) => Promise<any>;
   updateNodeTags: (taskId: string, tags: string[]) => void;
+}
 
-  // --- Hierarchical Actions ---
+export interface HierarchySlice {
   toggleNodeCollapsed: (nodeId: string) => void;
   expandPathToNode: (nodeId: string) => void;
-
-  // --- Temp Node Helpers ---
   addTempNode: (parentId: string, parentType: 'folder' | 'list') => string;
   removeTempNode: (nodeId: string) => void;
 }
+
+export interface DevSlice {
+  devListIds: Set<string>;
+  toggleDevList: (listId: string) => void;
+  isDevList: (listId: string) => boolean;
+  devPanelListId: string | null;
+  openDevPanel: (listId: string) => void;
+  closeDevPanel: () => void;
+}
+
+export type GraphStore = CoreSlice & UiSlice & ApiSlice & HierarchySlice & DevSlice;

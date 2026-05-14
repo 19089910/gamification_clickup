@@ -1,9 +1,9 @@
 import { StateCreator } from 'zustand';
-import { GraphStore, AppNode, AppEdge } from '@/types/graph';
-import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
+import { GraphStore, AppNode, AppEdge, CoreSlice } from '@/types/graph';
+import { applyNodeChanges, applyEdgeChanges, OnNodesChange, OnEdgesChange } from '@xyflow/react';
 import { syncSelectedNode } from '../helpers';
 
-export const createCoreSlice: StateCreator<GraphStore, [], [], Pick<GraphStore, 'fullNodes' | 'fullEdges' | 'nodes' | 'edges' | 'selectedNode' | 'spaceId' | 'setNodes' | 'setEdges' | 'setFullGraph' | 'onNodesChange' | 'onEdgesChange' | 'setSelectedNode' | 'setSpaceId'>> = (set, get) => ({
+export const createCoreSlice: StateCreator<GraphStore, [], [], CoreSlice> = (set, get) => ({
   fullNodes: [],
   fullEdges: [],
   nodes: [],
