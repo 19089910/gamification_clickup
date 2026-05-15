@@ -14,7 +14,7 @@ export interface SpaceNodeData {
 export interface FolderNodeData {
   label: string;
   folderId: string;
-  taskCount: string;
+  listCount: number;
   state?: NodeState;
   color?: string;
   collapsed: boolean;

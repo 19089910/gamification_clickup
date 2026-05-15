@@ -44,7 +44,6 @@ export function transformClickUpToGraph(
     const folderNodeId = `folder-${folder.id}`;
     const folderColor = getAreaColor(folder.name);
     const lists = folderListsMap.get(folder.id) ?? [];
-    const folderTaskCount = lists.reduce((acc, list) => acc + (listTasksMap.get(list.id)?.length || 0), 0);
 
     nodes.push({
       id: folderNodeId,
@@ -53,7 +52,7 @@ export function transformClickUpToGraph(
       data: {
         label: folder.name,
         folderId: folder.id,
-        taskCount: folderTaskCount.toString(),
+        listCount: lists.length,
         color: folderColor,
         collapsed: getDefaultCollapsed('folder'),
       },

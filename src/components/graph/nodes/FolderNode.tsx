@@ -51,7 +51,7 @@ const FolderNode = memo<NodeProps<FolderNodeType>>(({ id, data, selected }) => {
             +
           </button>
         </div>
-        <span className="node-meta">{data.taskCount} tasks</span>
+        <span className="node-meta">{data.listCount} Projetos</span>
       </div>
       <Handle type="source" position={Position.Right} />
     </div>
