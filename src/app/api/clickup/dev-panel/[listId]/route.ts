@@ -8,8 +8,8 @@ import { ClickUpList, ClickUpTask, TasksResponse } from '@/types/clickup';
  *
  * Returns the list metadata + all top-level tasks (with their subtasks).
  * The client then separates:
- *   - Milestones  → tasks where task.milestone === true
- *   - Epics       → regular top-level tasks (task.milestone !== true)
+ *   - Milestones  → tasks where task.custom_item_id === 1
+ *   - Epics       → regular top-level tasks (task.custom_item_id !== 1)
  *   - Issues      → subtasks of Epics
  */
 export async function GET(

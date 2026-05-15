@@ -7,6 +7,7 @@ import DevHeader from "@/components/dev/DevHeader";
 import IssueRow from "@/components/dev/IssueRow";
 import ProgressOverview from "@/components/dev/ProgressOverview";
 import LoadingScreen from "@/components/ui/LoadingScreen";
+import CreateMilestoneModal from "@/components/dev/CreateMilestoneModal";
 import { ClickUpList, ClickUpTask } from "@/types/clickup";
 
 interface DevPanelData {
@@ -14,9 +15,9 @@ interface DevPanelData {
   tasks: ClickUpTask[]; // top-level tasks only (Epics + Milestones)
 }
 
-/** Milestone = ClickUp task with milestone:true OR fallback: task named like "sprint*" / "milestone*" */
+/** Milestone = ClickUp task with custom_item_id: 1 OR fallback: task named like "sprint*" / "milestone*" */
 function isMilestone(task: ClickUpTask): boolean {
-  if (task.milestone === true) return true;
+  if (task.custom_item_id === 1) return true;
   // Fallback heuristic: task name starts with sprint/milestone/ms (case-insensitive)
   return /^(sprint|milestone|ms|phase)\s/i.test(task.name);
 }
@@ -72,6 +73,7 @@ export default function MilestoneManagerPage({
 }) {
   const { listId } = use(params);
   const [view, setView] = useState<View>("milestones");
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { data, isLoading, isError } = useQuery<DevPanelData>({
     queryKey: ["dev-panel", listId],
@@ -120,6 +122,13 @@ export default function MilestoneManagerPage({
     <div className="manager-page">
       <DevHeader list={data?.list ?? null} />
 
+      {showCreateModal && (
+        <CreateMilestoneModal
+          listId={listId}
+          onClose={() => setShowCreateModal(false)}
+        />
+      )}
+
       <div className="page-body">
         {/* ── Project header ── */}
         <div className="project-header">
@@ -147,19 +156,27 @@ export default function MilestoneManagerPage({
 
         {/* ── Nav tabs ── */}
         <nav className="view-tabs">
+          <div className="tabs-left">
+            <button
+              className={`vtab ${view === "milestones" ? "active" : ""}`}
+              onClick={() => setView("milestones")}
+            >
+              Milestones
+              <span className="vtab-badge">{milestones.length}</span>
+            </button>
+            <button
+              className={`vtab ${view === "backlog" ? "active" : ""}`}
+              onClick={() => setView("backlog")}
+            >
+              Backlog
+              <span className="vtab-badge">{backlog.length}</span>
+            </button>
+          </div>
           <button
-            className={`vtab ${view === "milestones" ? "active" : ""}`}
-            onClick={() => setView("milestones")}
+            className="new-ms-btn"
+            onClick={() => setShowCreateModal(true)}
           >
-            Milestones
-            <span className="vtab-badge">{milestones.length}</span>
-          </button>
-          <button
-            className={`vtab ${view === "backlog" ? "active" : ""}`}
-            onClick={() => setView("backlog")}
-          >
-            Backlog
-            <span className="vtab-badge">{backlog.length}</span>
+            ⊗ New Milestone
           </button>
         </nav>
 
@@ -172,13 +189,14 @@ export default function MilestoneManagerPage({
                   <div className="empty-state">
                     <h3>No Milestones found</h3>
                     <p>
-                      Create a task in ClickUp and enable the Milestone flag (⊗),
-                      or name it starting with &quot;Sprint&quot; or &quot;Milestone&quot;.
+                      Create a Milestone here, or enable the Milestone flag (⊗) in ClickUp.
                     </p>
-                    <p>
-                      Then link Issues (subtasks of Epics) to the Milestone via
-                      ClickUp&apos;s dependency feature.
-                    </p>
+                    <button
+                      className="empty-create-btn"
+                      onClick={() => setShowCreateModal(true)}
+                    >
+                      ⊗ Create first Milestone
+                    </button>
                   </div>
                 ) : (
                   milestones.map((ms) => {
@@ -312,12 +330,15 @@ export default function MilestoneManagerPage({
         /* Tabs */
         .view-tabs {
           display: flex;
+          justify-content: space-between;
+          align-items: center;
           background: #fff;
           border-left: 1px solid #dcdcde;
           border-right: 1px solid #dcdcde;
           border-bottom: 1px solid #dcdcde;
-          padding: 0 20px;
+          padding: 0 16px 0 20px;
         }
+        .tabs-left { display: flex; align-items: center; }
         .vtab {
           background: none;
           border: none;
@@ -379,9 +400,45 @@ export default function MilestoneManagerPage({
           padding: 52px 32px;
           text-align: center;
           color: #888;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
         }
-        .empty-state h3 { color: #1f1e24; margin-bottom: 8px; }
-        .empty-state p { font-size: 13px; margin: 4px 0; }
+        .empty-state h3 { color: #1f1e24; margin-bottom: 0; }
+        .empty-state p { font-size: 13px; margin: 0; }
+        .empty-create-btn {
+          margin-top: 12px;
+          background: #6e49cb;
+          color: #fff;
+          border: none;
+          border-radius: 6px;
+          padding: 9px 18px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s, box-shadow 0.15s;
+        }
+        .empty-create-btn:hover {
+          background: #5a3aab;
+          box-shadow: 0 2px 8px rgba(110, 73, 203, 0.3);
+        }
+        .new-ms-btn {
+          background: #6e49cb;
+          color: #fff;
+          border: none;
+          border-radius: 6px;
+          padding: 7px 14px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background 0.15s, box-shadow 0.15s;
+        }
+        .new-ms-btn:hover {
+          background: #5a3aab;
+          box-shadow: 0 2px 8px rgba(110, 73, 203, 0.25);
+        }
       `}</style>
     </div>
   );

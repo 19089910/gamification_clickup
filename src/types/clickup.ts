@@ -103,8 +103,8 @@ export interface ClickUpTask {
   subtasks?: ClickUpTask[];
   dependencies?: ClickUpDependency[];
   custom_fields?: ClickUpCustomField[];
-  /** ClickUp native: true when this task is flagged as a Milestone */
-  milestone?: boolean;
+  /** ClickUp native: 1 for Milestone, null or 0 for regular Task */
+  custom_item_id?: number | null;
   checklists?: { id: string; name: string; items: { id: string; name: string; resolved: boolean }[] }[];
 }
 

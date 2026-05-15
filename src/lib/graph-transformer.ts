@@ -124,7 +124,8 @@ export function transformClickUpToGraph(
 
       // ===== TASKS =====
       for (const task of info.tasks) {
-        if (task.parent) continue;
+        if (task.parent) continue;           // skip subtasks
+        if (task.custom_item_id === 1) continue; // skip milestones — they live in DevPanel only
 
         const taskNodeId = `task-${task.id}`;
         const taskQuarter = getTaskQuarter(task);
