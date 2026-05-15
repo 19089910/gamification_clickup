@@ -46,7 +46,11 @@ function MapView() {
   const { nodes, edges, selectedQuarter, setQuarter, setSpaceId } = useGraphStore();
 
   useEffect(() => {
-    if (spaceId) setSpaceId(spaceId);
+    if (spaceId) {
+      setSpaceId(spaceId);
+      // Persist for /dev dashboard (reads without URL param)
+      localStorage.setItem("lastSpaceId", spaceId);
+    }
   }, [spaceId, setSpaceId]);
 
   const nodeCount = nodes.length;

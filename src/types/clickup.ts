@@ -40,6 +40,7 @@ export interface ClickUpFolder {
 export interface ClickUpList {
   id: string;
   name: string;
+  color?: string;
   orderindex: number;
   status: {
     status: string;
@@ -102,6 +103,9 @@ export interface ClickUpTask {
   subtasks?: ClickUpTask[];
   dependencies?: ClickUpDependency[];
   custom_fields?: ClickUpCustomField[];
+  /** ClickUp native: true when this task is flagged as a Milestone */
+  milestone?: boolean;
+  checklists?: { id: string; name: string; items: { id: string; name: string; resolved: boolean }[] }[];
 }
 
 export interface ClickUpTag {

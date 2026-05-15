@@ -1,6 +1,7 @@
 "use client";
 
 import React, { memo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ListNode as ListNodeType, NodeState } from "@/types/graph";
@@ -32,6 +33,7 @@ const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
   const accent = data.color as string;
   const { createTask, selectedQuarter, toggleNodeCollapsed, fullEdges, fullNodes, openDevPanel } = useGraphStore();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const hasTasks = fullEdges.some(e => {
     if (e.source !== id) return false;
@@ -47,11 +49,11 @@ const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
 
   const handlePrimaryAction = useCallback((e: React.MouseEvent) => {
     if (isDev) {
-      openDevPanel(data.listId as string);
+      router.push(`/dev/${data.listId}`);
     } else {
       handleCreateTask(e);
     }
-  }, [isDev, data.listId, openDevPanel, handleCreateTask]);
+  }, [isDev, data.listId, router, handleCreateTask]);
 
   const handleToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
