@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useListDetail } from '@/hooks/useListDetail';
 import { InlineNameEditor } from './InlineNameEditor';
 import { AppNode, ListNodeData } from '@/types/graph';
@@ -16,17 +16,23 @@ export function ListDetail({ node }: { node: AppNode }) {
   const graphData = queryClient.getQueryData<GraphApiResponse>(["clickup-graph", spaceId]);
   const tasks = graphData?.listTasksMap[list.listId] || [];
 
-  const handleToggleDevMode = async (checked: boolean) => {
-  const confirmed = confirm(
-    checked
-      ? 'Ativar modo Dev?'
-      : 'Desativar modo Dev?'
-  );
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [pendingChecked, setPendingChecked] = useState(false);
 
-  if (!confirmed) return;
+  const handleToggleClick = () => {
+    if (isSyncingDevMode) return;
+    setPendingChecked(!isDev);
+    setIsConfirming(true);
+  };
 
-  toggleDevMode(list.listId, tasks, checked, queryClient);
-};
+  const handleConfirm = async () => {
+    setIsConfirming(false);
+    await toggleDevMode(list.listId, tasks, pendingChecked, queryClient);
+  };
+
+  const handleCancel = () => {
+    setIsConfirming(false);
+  };
 
   const {
     localName,
@@ -61,20 +67,31 @@ export function ListDetail({ node }: { node: AppNode }) {
       <div className="detail-section">
         <div className="detail-row">
           <span className="detail-key">Gerenciador Dev</span>
-          <label className="dev-toggle">
-            <input
-              type="checkbox"
-              checked={isDev}
-              disabled={isSyncingDevMode}
-              onChange={(e) => handleToggleDevMode(e.target.checked)}
-            />
-
-            <span className="dev-toggle-label">
-              {isSyncingDevMode
-                ? 'Sincronizando...'
-                : (isDev ? '⚡ Ativo' : 'Ativar?')}
+          <div className="dev-mode-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {isConfirming ? (
+              <div className="dev-confirm-overlay">
+                <span className="detail-key" style={{ color: '#a78bfa', fontSize: '10px' }}>
+                  {pendingChecked ? 'Ativar?' : 'Desativar?'}
+                </span>
+                <button className="btn-confirm-yes" onClick={handleConfirm}>Sim</button>
+                <button className="btn-confirm-no" onClick={handleCancel}>Não</button>
+              </div>
+            ) : (
+              <div 
+                className={`premium-switch ${isDev ? 'active' : ''} ${isSyncingDevMode ? 'syncing' : ''}`}
+                onClick={handleToggleClick}
+                title={isSyncingDevMode ? 'Sincronizando com ClickUp...' : (isDev ? 'Desativar Dev Mode' : 'Ativar Dev Mode')}
+              >
+                <div className="premium-switch-handle" />
+              </div>
+            )}
+            
+            <span className="detail-key" style={{ fontSize: isDev ? '16px':'11px' , fontWeight: 600, color: isDev ? '#a78bfa' : 'var(--text-3)' }}>
+              {isSyncingDevMode ? 'Sincronizando...' : (isDev ? '⚡' : 'Modo Dev')}
             </span>
-          </label>
+          </div>
+        </div>
+        <div className="detail-row">
           <span className="detail-key">Tarefas</span>
           <span className="detail-value">{list.taskCount}</span>
         </div>

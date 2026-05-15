@@ -30,10 +30,15 @@ function getNodeStyle(color: string, state: NodeState | undefined, isSelected: b
 
 const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
   const accent = data.color as string;
-  const { createTask, selectedQuarter, toggleNodeCollapsed, fullEdges, openDevPanel } = useGraphStore();
+  const { createTask, selectedQuarter, toggleNodeCollapsed, fullEdges, fullNodes, openDevPanel } = useGraphStore();
   const queryClient = useQueryClient();
 
-  const hasChildren = fullEdges.some(e => e.source === id);
+  const hasTasks = fullEdges.some(e => {
+    if (e.source !== id) return false;
+    const target = fullNodes.find(n => n.id === e.target);
+    return target?.type === 'task';
+  });
+  
   const isDev = !!data.isDev;
 
   const handleCreateTask = useCallback(async (e: React.MouseEvent) => {
@@ -60,8 +65,8 @@ const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
     >
       <Handle type="target" position={Position.Left} />
       
-      {hasChildren && (
-        <button className="node-collapse-toggle list-toggle" onClick={handleToggle}>
+      {hasTasks && (
+        <button className="node-collapse-toggle" onClick={handleToggle}>
           {data.collapsed ? '+' : '−'}
         </button>
       )}
@@ -69,7 +74,7 @@ const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
       <div className="list-color-stripe" style={{ background: accent }} />
       <div className="node-content">
         <div className="node-header">
-          {isDev && <span className="epic-label">EPIC</span>}
+          {isDev && <span className="epic-label">Dev</span>}
           <span className="node-label">{data.label}</span>
           <button
             className={`add-task-btn ${isDev ? 'dev-mode' : ''}`}

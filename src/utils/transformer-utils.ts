@@ -13,18 +13,31 @@ export function getVisibleGraph(nodes: AppNode[], edges: AppEdge[]): { nodes: Ap
 
   while (queue.length > 0) {
     const current = queue.shift()!;
+    const isCollapsed = current.data.collapsed;
     
-    // If current node is NOT collapsed, traverse its children
-    if (!current.data.collapsed) {
-      const childEdges = edges.filter(e => e.source === current.id);
-      
-      for (const edge of childEdges) {
-        const childNode = nodes.find(n => n.id === edge.target);
-        if (childNode && !visibleNodeIds.has(childNode.id)) {
-          visibleNodeIds.add(childNode.id);
-          visibleEdges.push(edge);
-          queue.push(childNode);
+    const childEdges = edges.filter(e => e.source === current.id);
+    
+    for (const edge of childEdges) {
+      const childNode = nodes.find(n => n.id === edge.target);
+      if (!childNode) continue;
+
+      let shouldShowChild = false;
+
+      if (!isCollapsed) {
+        // Normal case: show everything
+        shouldShowChild = true;
+      } else {
+        // Special case for collapsed lists:
+        // Show next lists in hierarchy but hide tasks
+        if (current.type === 'list' && childNode.type === 'list') {
+          shouldShowChild = true;
         }
+      }
+
+      if (shouldShowChild && !visibleNodeIds.has(childNode.id)) {
+        visibleNodeIds.add(childNode.id);
+        visibleEdges.push(edge);
+        queue.push(childNode);
       }
     }
   }
