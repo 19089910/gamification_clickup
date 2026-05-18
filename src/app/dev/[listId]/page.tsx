@@ -8,6 +8,7 @@ import IssueRow from "@/components/dev/IssueRow";
 import ProgressOverview from "@/components/dev/ProgressOverview";
 import LoadingScreen from "@/components/ui/LoadingScreen";
 import CreateMilestoneModal from "@/components/dev/CreateMilestoneModal";
+import CreateIssueModal from "@/components/dev/CreateIssueModal";
 import { ClickUpList, ClickUpTask } from "@/types/clickup";
 
 interface DevPanelData {
@@ -74,6 +75,7 @@ export default function MilestoneManagerPage({
   const { listId } = use(params);
   const [view, setView] = useState<View>("milestones");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showIssueModal, setShowIssueModal] = useState<{ open: boolean; milestoneId?: string }>({ open: false });
 
   const { data, isLoading, isError } = useQuery<DevPanelData>({
     queryKey: ["dev-panel", listId],
@@ -126,6 +128,15 @@ export default function MilestoneManagerPage({
         <CreateMilestoneModal
           listId={listId}
           onClose={() => setShowCreateModal(false)}
+        />
+      )}
+
+      {showIssueModal.open && (
+        <CreateIssueModal
+          listId={listId}
+          epics={epics}
+          milestoneId={showIssueModal.milestoneId}
+          onClose={() => setShowIssueModal({ open: false })}
         />
       )}
 
@@ -207,6 +218,7 @@ export default function MilestoneManagerPage({
                         milestone={ms}
                         issues={issues}
                         listId={listId}
+                        onAddIssue={() => setShowIssueModal({ open: true, milestoneId: ms.id })}
                       />
                     );
                   })
@@ -226,9 +238,14 @@ export default function MilestoneManagerPage({
 
             {view === "backlog" && (
               <div className="backlog-section">
-                <p className="backlog-hint">
-                  Issues not yet assigned to any Milestone.
-                </p>
+                <div className="backlog-header">
+                  <p className="backlog-hint">
+                    Issues not yet assigned to any Milestone.
+                  </p>
+                  <button className="new-issue-btn" onClick={() => setShowIssueModal({ open: true })}>
+                    + New Issue
+                  </button>
+                </div>
                 {backlog.length === 0 ? (
                   <div className="empty-state">
                     <h3>All issues assigned</h3>
@@ -385,8 +402,29 @@ export default function MilestoneManagerPage({
           border-bottom: 1px solid #eaeaea;
         }
         .epics-grid { display: flex; flex-direction: column; gap: 8px; }
-        .backlog-section { display: flex; flex-direction: column; gap: 12px; }
-        .backlog-hint { font-size: 13px; color: #888; margin: 0; }
+        .backlog-section { display: flex; flex-direction: column; gap: 16px; }
+        .backlog-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 4px;
+        }
+        .backlog-hint { font-size: 14px; color: #666; margin: 0; }
+        .new-issue-btn {
+          background: #fff;
+          border: 1px solid #dcdcde;
+          color: #6e49cb;
+          padding: 6px 12px;
+          border-radius: 6px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .new-issue-btn:hover {
+          border-color: #6e49cb;
+          background: #f8f7ff;
+        }
         .issue-list-box {
           background: #fff;
           border: 1px solid #dcdcde;
@@ -450,10 +488,12 @@ function MilestoneSection({
   milestone,
   issues,
   listId,
+  onAddIssue,
 }: {
   milestone: ClickUpTask;
   issues: ClickUpTask[];
   listId: string;
+  onAddIssue: () => void;
 }) {
   const [expanded, setExpanded] = useState(true);
   const closed = issues.filter((i) => i.status.type === "closed").length;
@@ -473,6 +513,13 @@ function MilestoneSection({
           )}
         </div>
         <div className="ms-right">
+          <button 
+            className="ms-add-btn" 
+            onClick={(e) => { e.stopPropagation(); onAddIssue(); }}
+            title="Add issue to this milestone"
+          >
+            +
+          </button>
           <span className="ms-count">{closed}/{issues.length} issues</span>
           <div className="ms-track">
             <div className="ms-fill" style={{ width: `${progress}%` }} />
@@ -540,6 +587,27 @@ function MilestoneSection({
           flex-shrink: 0;
         }
         .ms-count { font-size: 12px; color: #888; white-space: nowrap; }
+        .ms-add-btn {
+          background: #fff;
+          border: 1px solid #dcdcde;
+          color: #6e49cb;
+          width: 24px;
+          height: 24px;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 16px;
+          line-height: 1;
+          padding: 0;
+          transition: all 0.15s;
+        }
+        .ms-add-btn:hover {
+          border-color: #6e49cb;
+          background: #f8f7ff;
+          transform: scale(1.05);
+        }
         .ms-track {
           width: 80px;
           height: 6px;

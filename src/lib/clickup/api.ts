@@ -72,3 +72,12 @@ export async function getTasks(listId: string): Promise<ClickUpTask[]> {
   );
   return data.tasks;
 }
+
+export async function getTask(taskId: string): Promise<ClickUpTask> {
+  return fetchClickUp<ClickUpTask>(`/task/${taskId}`);
+}
+
+export async function getMembers(teamId: string): Promise<any[]> {
+  const data = await fetchClickUp<{ members: any[] }>(`/team/${teamId}`);
+  return data.members.map(m => m.user);
+}
