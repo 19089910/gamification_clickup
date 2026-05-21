@@ -12,7 +12,7 @@ export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySli
         collapsed: !targetNode.data.collapsed,
       });
 
-      return { 
+      return {
         fullNodes: newFullNodes,
         selectedNode: syncSelectedNode(state.selectedNode, newFullNodes)
       };
@@ -47,7 +47,7 @@ export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySli
 
       expandParents(nodeId);
 
-      return { 
+      return {
         fullNodes: newFullNodes as AppNode[],
         selectedNode: syncSelectedNode(state.selectedNode, newFullNodes)
       };
@@ -57,12 +57,12 @@ export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySli
   addTempNode: (parentId, parentType) => {
     const tempId = `temp-${Date.now()}`;
     const parentNode = get().nodes.find(n => n.id === parentId);
-    
+
     const tempNode: AppNode = {
       id: tempId,
       type: 'temp',
       position: { x: (parentNode?.position.x ?? 0) + 300, y: (parentNode?.position.y ?? 0) },
-      data: { label: '', isTemp: true, parentId, parentType, collapsed: false },
+      data: { label: '', isTemp: true, parentId, parentType, collapsed: false } as any,
     };
 
     const tempEdge: AppEdge = {

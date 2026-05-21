@@ -23,6 +23,7 @@ interface ChecklistItem {
   name: string;
   resolved: boolean;
   checklistId: string;
+  isNew?: boolean; // Identificador para itens novos
 }
 
 export function SubtaskDetail({ node }: { node: AppNode }) {
@@ -52,14 +53,41 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
   const [items, setItems] = useState<ChecklistItem[]>(getInitialChecklistItems());
   const [pendingItems, setPendingItems] = useState<ChecklistItem[]>([]);
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
+  const [newItemName, setNewItemName] = useState('');
 
-  // Sync state if subtask checklists change in the background/props
+  // Sincroniza o estado local caso as informações do grafo mudem em background
   useEffect(() => {
     setItems(getInitialChecklistItems());
     setPendingItems([]);
   }, [subtask.checklists]);
 
+  // isDirty agora avalia modificações e inclusões perfeitamente
   const isDirty = pendingItems.length > 0;
+
+  const handleAddItemLocal = () => {
+    if (!newItemName.trim()) return;
+
+    // Tentamos resgatar o ID da primeira checklist existente na task. 
+    // Se não houver, enviamos vazio para que seu backend saiba que precisa criar uma nova checklist pai.
+    const defaultChecklistId = subtask.checklists?.[0]?.id || '';
+
+    const newItem: ChecklistItem = {
+      id: `temp-item-${Date.now()}`,
+      name: newItemName.trim(),
+      resolved: false,
+      checklistId: defaultChecklistId,
+      isNew: true
+    };
+
+    // 1. Atualiza a lista visual da tela
+    setItems((prev) => [...prev, newItem]);
+
+    // 2. Coloca o item novo na fila de pendentes para que o 'isDirty' ative o botão de salvar
+    setPendingItems((prev) => [...prev, newItem]);
+
+    // 3. Limpa o input de texto
+    setNewItemName('');
+  };
 
   const handleCheckboxChange = (itemId: string, checked: boolean) => {
     setItems((prevItems) =>
@@ -98,6 +126,7 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
     const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
 
     try {
+      // Enviamos a lista de pendentes contendo atualizações E novos itens criados localmente
       const res = await fetch(`/api/clickup/tasks/${subtask.taskId}/checklist`, {
         method: 'POST',
         headers: {
@@ -110,73 +139,14 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
         throw new Error('Erro ao salvar o checklist');
       }
 
-      // Optimistically update checklists in Zustand store
-      useGraphStore.setState((state) => {
-        const updatedFullNodes = state.fullNodes.map((n) => {
-          if (n.id === `subtask-${subtask.taskId}`) {
-            const updatedChecklists = (subtask.checklists || []).map((checklist) => {
-              const updatedItems = checklist.items.map((item) => {
-                const pending = pendingItems.find((p) => p.id === item.id);
-                if (pending) {
-                  return { ...item, name: pending.name, resolved: pending.resolved };
-                }
-                return item;
-              });
-              return { ...checklist, items: updatedItems };
-            });
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                checklists: updatedChecklists,
-              },
-            } as AppNode;
-          }
-          return n;
-        });
-        const updatedSelectedNode = updatedFullNodes.find((n) => n.id === node.id) || null;
-        return {
-          fullNodes: updatedFullNodes,
-          selectedNode: updatedSelectedNode,
-        };
-      });
-
-      // Optimistically update checklists in React Query cache
-      queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
-        if (!oldData) return oldData;
-        const newListTasksMap = { ...oldData.listTasksMap };
-        let taskFound = false;
-
-        for (const listId in newListTasksMap) {
-          const taskIndex = newListTasksMap[listId].findIndex((t) => t.id === subtask.taskId);
-          if (taskIndex !== -1) {
-            const originalTask = newListTasksMap[listId][taskIndex];
-            const updatedChecklists = (originalTask.checklists || []).map((checklist) => {
-              const updatedItems = checklist.items.map((item) => {
-                const pending = pendingItems.find((p) => p.id === item.id);
-                if (pending) {
-                  return { ...item, name: pending.name, resolved: pending.resolved };
-                }
-                return item;
-              });
-              return { ...checklist, items: updatedItems };
-            });
-            newListTasksMap[listId][taskIndex] = {
-              ...originalTask,
-              checklists: updatedChecklists,
-            };
-            taskFound = true;
-            break;
-          }
-        }
-        return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
-      });
-
+      // Se a chamada de rede deu certo, limpamos a fila pendente e invalidamos as queries
+      // para puxar os IDs reais que o ClickUp gerou para as novas linhas.
       setPendingItems([]);
+      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+
     } catch (err) {
       console.error(err);
       alert('Erro ao salvar o checklist. Tente novamente.');
-      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
     } finally {
       setIsSavingChecklist(false);
     }
@@ -220,24 +190,11 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
       </div>
       <div className={`tracked-time-pill ${true ? 'active' : ''}`}>
         <div className="tracked-time-content">
-          <span className="tracked-time-label">
-            Tempo Rastreado
-          </span>
-
-          <span className="tracked-time-value">
-            ⏱ {formatTrackedTime(subtask.time_spent as number)}
-          </span>
+          <span className="tracked-time-label">Tempo Rastreado</span>
+          <span className="tracked-time-value">⏱ {formatTrackedTime(subtask.time_spent as number)}</span>
         </div>
-        <button
-          className="tracked-time-play"
-          onClick={() => {
-            // start timer
-          }}
-        >
-          ▶
-        </button>
+        <button className="tracked-time-play" onClick={() => { }}>▶</button>
       </div>
-
 
       <InlineNameEditor
         inputRef={inputRef}
@@ -249,12 +206,24 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
         isSaving={isSaving}
       />
 
+      <div className="detail-section" style={{ borderTop: '1px solid #222', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h3 className="detail-key" style={{ display: 'block', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Checklist
+        </h3>
 
-      {items.length > 0 && (
-        <div className="detail-section" style={{ borderTop: '1px solid #222', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h3 className="detail-key" style={{ display: 'block', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Checklist
-          </h3>
+        {/* CONTENER COM SCROLL: Adicionamos a trava de altura e overflow aqui */}
+        <div
+          className="checklist-scroll-container"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            maxHeight: '180px', // Limita a altura para até ~5 ou 6 itens visíveis ao mesmo tempo
+            overflowY: 'auto',   // Ativa o scroll apenas vertical quando necessário
+            paddingRight: '4px'  // Espaço para a barra de rolagem não cobrir o texto
+          }}
+        >
+          {/* Lista de itens existentes */}
           <div className="checklist-container" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {items.map((item) => (
               <div key={item.id} className="checklist-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -293,19 +262,58 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
               </div>
             ))}
           </div>
+        </div>
 
-          {isDirty && (
+        {/* Campo para adicionar novo item na lista local (Fica fixo abaixo do scroll) */}
+        <div className="add-checklist-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+          <span style={{ color: '#555', fontSize: '18px', paddingLeft: '2px', cursor: 'default' }}>+</span>
+          <input
+            type="text"
+            placeholder="Adicionar novo item..."
+            disabled={isSavingChecklist}
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newItemName.trim()) {
+                handleAddItemLocal();
+              }
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              borderBottom: '1px solid #222',
+              color: '#fff',
+              fontSize: '13px',
+              padding: '4px',
+              flex: 1,
+              outline: 'none',
+              transition: 'border-color 0.2s',
+            }}
+            onFocus={(e) => (e.target.style.borderBottom = '1px solid #5f55ee')}
+            onBlur={(e) => (e.target.style.borderBottom = '1px solid #222')}
+          />
+          {newItemName.trim() && (
             <button
-              className="detail-cta"
-              onClick={handleSaveChecklist}
-              disabled={isSavingChecklist}
-              style={{ marginTop: '16px', cursor: 'pointer', width: '100%' }}
+              onClick={handleAddItemLocal}
+              style={{ background: '#5f55ee', color: '#fff', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', cursor: 'pointer' }}
             >
-              {isSavingChecklist ? 'Salvando...' : 'Salvar checklist'}
+              Add
             </button>
           )}
         </div>
-      )}
+
+        {/* Botão de Salvar alterações */}
+        {isDirty && (
+          <button
+            className="detail-cta"
+            onClick={handleSaveChecklist}
+            disabled={isSavingChecklist}
+            style={{ marginTop: '8px', cursor: 'pointer', width: '100%' }}
+          >
+            {isSavingChecklist ? 'Salvando...' : 'Salvar checklist'}
+          </button>
+        )}
+      </div>
 
       <a
         href={subtask.url as string}
