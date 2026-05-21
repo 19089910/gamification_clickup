@@ -16,7 +16,7 @@ function formatDate(timestamp: string | null): string {
 export function TaskDetail({ node }: { node: AppNode }) {
   const task = node.data as TaskNodeData;
   const inputRef = useRef<HTMLInputElement>(null);
-  
+
   const {
     localName,
     setLocalName,
@@ -141,8 +141,9 @@ export function TaskDetail({ node }: { node: AppNode }) {
             </span>
           ))}
         </div>
-      )}
 
+      )}
+      <p className="detail-hint">→ Pressione <kbd>Tab</kbd> para criar uma subTask</p>
       <a
         href={task.url}
         target="_blank"

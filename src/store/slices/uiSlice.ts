@@ -18,11 +18,11 @@ export const createUiSlice: StateCreator<GraphStore, [], [], UiSlice> = (set) =>
       space: 70,
       folder: 40,
       list: 45,
-      task: 15,
-      subtask: 12,
+      task: 35,
+      subtask: 0,
     },
   },
-  
+
   editTaskModal: {
     isOpen: false,
     taskId: '',
@@ -41,7 +41,7 @@ export const createUiSlice: StateCreator<GraphStore, [], [], UiSlice> = (set) =>
   setError: (error) => set({ error }),
   setSidebarOpen: (open) => set({ isSidebarOpen: open }),
   setQuarter: (q) => set({ selectedQuarter: q }),
-  
+
   updateLayoutSettings: (settings) => set((state) => ({
     layoutSettings: {
       ...state.layoutSettings,
@@ -52,9 +52,9 @@ export const createUiSlice: StateCreator<GraphStore, [], [], UiSlice> = (set) =>
       },
     },
   })),
-  
-  setEditTaskModal: (data) => set((state) => ({ 
-    editTaskModal: { ...state.editTaskModal, ...data } 
+
+  setEditTaskModal: (data) => set((state) => ({
+    editTaskModal: { ...state.editTaskModal, ...data }
   })),
 
   setQuarterPickerModal: (data) => set((state) => ({

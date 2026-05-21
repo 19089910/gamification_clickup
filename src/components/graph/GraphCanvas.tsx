@@ -39,7 +39,7 @@ export default function GraphCanvas() {
     nodes, edges,
     onNodesChange, onEdgesChange,
     setSelectedNode, selectedNode,
-    createTask, createList,
+    createTask, createList, createSubtask,
     selectedQuarter,
     addTempNode, removeTempNode,
     setQuarterPickerModal,
@@ -61,10 +61,43 @@ export default function GraphCanvas() {
 
       // Look up the actual ClickUp ID from the parent node's data
       const parentNode = useGraphStore.getState().fullNodes.find(n => n.id === nodeParentId);
+
       const clickUpId = parentType === 'folder'
         ? (parentNode?.data as any)?.folderId as string
-        : (parentNode?.data as any)?.listId as string;
+        : parentType === 'task'
+          ? (parentNode?.data as any)?.taskId as string || parentNode?.id.replace('task-', '') // Fallback para o ID do nó
+          : (parentNode?.data as any)?.listId as string;
 
+      // ── RESOLUÇÃO DO LIST ID DA TASK PAI ──
+      let parentListId: string | null = null;
+      if (parentType === 'task' && parentNode) {
+        // 1. Tenta pegar de propriedades comuns de herança de nós
+        parentListId = (parentNode.data as any).listId ||
+          (parentNode.data as any).list?.id ||
+          (parentNode as any).parentId?.replace('list-', '') || null;
+
+        // 2. CORREÇÃO: Busca o listTasksMap dentro dos dados reais do React Query cache
+        if (!parentListId && clickUpId) {
+          const cleanTaskId = clickUpId.replace('task-', '');
+
+          // Pegamos o estado do cache atual do React Query baseado na sua chave
+          const queryData = queryClient.getQueryData<GraphApiResponse>([
+            'clickup-graph',
+            useGraphStore.getState().spaceId
+          ]);
+
+          const listTasksMap = queryData?.listTasksMap || {};
+
+          for (const listId in listTasksMap) {
+            if (listTasksMap[listId]?.some((t: any) => t.id === cleanTaskId)) {
+              parentListId = listId;
+              break;
+            }
+          }
+        }
+      }
+
+      // Se for vazio ou nulo, barra aqui com segurança
       if (!clickUpId) {
         console.error('Could not resolve ClickUp ID for parent node', nodeParentId);
         removeTempNode(nodeId);
@@ -77,7 +110,7 @@ export default function GraphCanvas() {
         // Create task immediately with active quarter
         try {
           const newTask = await createTask(clickUpId, name, selectedQuarter);
-          
+
           // Local Sync: Update cache after success
           queryClient.setQueryData(['clickup-graph', useGraphStore.getState().spaceId], (oldData: GraphApiResponse | undefined) => {
             if (!oldData) return oldData;
@@ -100,6 +133,20 @@ export default function GraphCanvas() {
           folderId: clickUpId,
           tempNodeId: nodeId,
         });
+      } else if (parentType === 'task') {
+        try {
+          const cleanTaskId = clickUpId.replace('task-', '');
+
+          // Dispara para a rota correta que agora está mapeada perfeitamente
+          await createSubtask(cleanTaskId, name);
+
+          // Força a atualização do cache e reconstrói o grafo com a nova subtask
+          queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+        } catch (err) {
+          console.error('Error creating subtask:', err);
+          queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+          alert("Erro ao criar subtask. Sincronizando com ClickUp...");
+        }
       }
     };
 
@@ -122,7 +169,7 @@ export default function GraphCanvas() {
       e.preventDefault();
 
       const type = selectedNode.type;
-      if (type !== 'folder' && type !== 'list') return;
+      if (type !== 'folder' && type !== 'list' && type !== 'task') return;
 
       // Close the detail panel so it doesn't steal focus from the temp node input
       setSelectedNode(null);
@@ -130,9 +177,9 @@ export default function GraphCanvas() {
       // Ensure parent folder is expanded so the temp node is visible
       if (selectedNode.data.collapsed) {
         expandPathToNode(selectedNode.id);
-        setTimeout(() => addTempNode(selectedNode.id, type as 'folder' | 'list'), 50);
+        setTimeout(() => addTempNode(selectedNode.id, type as 'folder' | 'list' | 'task'), 50);
       } else {
-        addTempNode(selectedNode.id, type as 'folder' | 'list');
+        addTempNode(selectedNode.id, type as 'folder' | 'list' | 'task');
       }
     }
   }, [selectedNode, setSelectedNode, addTempNode, expandPathToNode]);
@@ -198,13 +245,13 @@ export default function GraphCanvas() {
           }}
           nodeColor={(node) => {
             switch (node.type) {
-              case "space":   return "#7c3aed";
-              case "folder":  return "#0ea5e9";
-              case "list":    return "#10b981";
-              case "task":    return "#f59e0b";
+              case "space": return "#7c3aed";
+              case "folder": return "#0ea5e9";
+              case "list": return "#10b981";
+              case "task": return "#f59e0b";
               case "subtask": return "#ec4899";
-              case "temp":    return "#555";
-              default:        return "#333";
+              case "temp": return "#555";
+              default: return "#333";
             }
           }}
           maskColor="rgba(0,0,0,0.7)"

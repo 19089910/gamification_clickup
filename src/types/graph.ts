@@ -176,6 +176,7 @@ export interface UiSlice {
 export interface ApiSlice {
   createTask: (listId: string, name: string, quarter: string | null) => Promise<any>;
   createList: (folderId: string, name: string, quarter: string | null) => Promise<any>;
+  createSubtask: (parentTaskId: string, name: string) => Promise<any>;
   updateTask: (taskId: string, updates: { name?: string; quarter?: string; status?: string; tags?: string[] }) => Promise<any>;
   updateList: (listId: string, updates: { name?: string }) => Promise<any>;
   updateNodeTags: (taskId: string, tags: string[]) => void;
@@ -184,7 +185,7 @@ export interface ApiSlice {
 export interface HierarchySlice {
   toggleNodeCollapsed: (nodeId: string) => void;
   expandPathToNode: (nodeId: string) => void;
-  addTempNode: (parentId: string, parentType: 'folder' | 'list') => string;
+  addTempNode: (parentId: string, parentType: 'folder' | 'list' | 'task') => string;
   removeTempNode: (nodeId: string) => void;
 }
 

@@ -8,7 +8,7 @@ interface TempNodeData {
   label: string;
   isTemp: boolean;
   parentId: string;
-  parentType: 'folder' | 'list';
+  parentType: 'folder' | 'list' | 'task';
   [key: string]: unknown;
 }
 
@@ -21,6 +21,7 @@ interface TempNodeProps extends NodeProps<TempNodeType> {
 
 const TempNode = memo<NodeProps<TempNodeType>>(({ id, data }) => {
   const isForList = data.parentType === 'folder';
+  const isForSubtask = data.parentType === 'task'
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -39,11 +40,11 @@ const TempNode = memo<NodeProps<TempNodeType>>(({ id, data }) => {
   return (
     <div className={`temp-node ${isForList ? 'temp-list' : 'temp-task'}`}>
       <Handle type="target" position={Position.Left} />
-      <div className="temp-node-icon">{isForList ? '📁' : '✏️'}</div>
+      <div className="temp-node-icon">{isForList ? '📁' : isForSubtask ? '🔹' : '✏️'}</div>
       <input
         className="temp-node-input"
         autoFocus
-        placeholder={isForList ? 'Nome da lista...' : 'Nome da task...'}
+        placeholder={isForList ? 'Nome da lista...' : isForSubtask ? 'Nome da subtask...' : 'Nome da task...'}
         onKeyDown={handleKeyDown}
         onClick={(e) => e.stopPropagation()}
       />

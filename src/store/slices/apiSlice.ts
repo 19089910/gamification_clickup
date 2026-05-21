@@ -19,6 +19,14 @@ export const createApiSlice: StateCreator<GraphStore, [], [], ApiSlice> = (set) 
     }, set);
   },
 
+  // Adicione o listId na assinatura
+  createSubtask: (parentTaskId: string, name: string) => {
+    // Mudamos a rota para encaixar perfeitamente na árvore de pastas:
+    return fetchApi(`/api/clickup/tasks/${parentTaskId}/subtasks`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }, set);
+  },
   updateTask: async (taskId, updates) => {
     set((state) => {
       const targetNode = state.fullNodes.find(n => n.id === `task-${taskId}` || n.id === `subtask-${taskId}`);
@@ -78,21 +86,21 @@ export const createApiSlice: StateCreator<GraphStore, [], [], ApiSlice> = (set) 
   },
 
   updateNodeTags: (taskId: string, tags: string[]) => {
-  set(state => ({
-    fullNodes: state.fullNodes.map(node => {
-      if (node.id !== `task-${taskId}`) return node;
-      return {
-        ...node,
-        data: {
-          ...node.data,
-          tags: tags.map(name => ({
-            name,
-            bg: '#89898922',
-            fg: '#898989',
-          })),
-        },
-      } as AppNode;
-    }),
-  }));
+    set(state => ({
+      fullNodes: state.fullNodes.map(node => {
+        if (node.id !== `task-${taskId}`) return node;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            tags: tags.map(name => ({
+              name,
+              bg: '#89898922',
+              fg: '#898989',
+            })),
+          },
+        } as AppNode;
+      }),
+    }));
   },
 });
