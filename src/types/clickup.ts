@@ -155,3 +155,11 @@ export interface ListsResponse {
 export interface TasksResponse {
   tasks: ClickUpTask[];
 }
+
+export interface ChecklistItemPayload {
+  id: string;
+  name: string;
+  resolved: boolean;
+  checklistId: string;
+  isNew?: boolean;
+}

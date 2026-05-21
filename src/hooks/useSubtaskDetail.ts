@@ -4,23 +4,49 @@ import { useGraphStore } from '@/store/graphStore';
 import { AppNode, SubtaskNodeData } from '@/types/graph';
 import { GraphApiResponse } from '@/hooks/useClickUpData';
 import { getStatusFromConfig } from '@/config/status';
+import { saveChecklistMutation } from '@/lib/clickup/mutations';
+import { ChecklistItemPayload } from '@/types/clickup';
 
 export function useSubtaskDetail(node: AppNode) {
   const { updateTask, setSidebarOpen } = useGraphStore();
   const queryClient = useQueryClient();
   const subtask = node.data as SubtaskNodeData;
 
+  // --- ESTADOS DA TASK GERAL ---
   const [localName, setLocalName] = useState(subtask.label as string);
   const [localStatus, setLocalStatus] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // --- ESTADOS DO CHECKLIST ---
+  const getInitialChecklistItems = (): ChecklistItemPayload[] => {
+    return (subtask.checklists || []).flatMap((checklist) =>
+      checklist.items.map((item) => ({
+        ...item,
+        checklistId: checklist.id,
+      }))
+    );
+  };
+
+  const [items, setItems] = useState<ChecklistItemPayload[]>(getInitialChecklistItems());
+  const [pendingItems, setPendingItems] = useState<ChecklistItemPayload[]>([]);
+  const [isSavingChecklist, setIsSavingChecklist] = useState(false);
+  const [newItemName, setNewItemName] = useState('');
+
+  // Sincroniza estados gerais e de checklist quando o nó mudar
   useEffect(() => {
     setLocalName(subtask.label as string);
     const statusConfig = getStatusFromConfig(subtask.status);
     setLocalStatus(statusConfig?.id || subtask.status.toLowerCase());
-  }, [subtask.label, subtask.status]);
 
+    // Sincroniza os itens de checklist locais
+    setItems(getInitialChecklistItems());
+    setPendingItems([]);
+  }, [subtask.label, subtask.status, subtask.checklists]);
+
+  const isChecklistDirty = pendingItems.length > 0;
+
+  // --- HANDLERS DO NOME E STATUS ---
   const handleSaveName = async () => {
     if (!localName.trim() || localName === subtask.label) return;
 
@@ -65,10 +91,12 @@ export function useSubtaskDetail(node: AppNode) {
       setIsSaving(false);
     }
   };
+
   const handleTaskKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') { e.preventDefault(); await handleSaveName(); }
     if (e.key === 'Escape') setSidebarOpen(false);
   };
+
   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newStatus = e.target.value;
     setLocalStatus(newStatus);
@@ -83,12 +111,10 @@ export function useSubtaskDetail(node: AppNode) {
     try {
       const { fullNodes } = useGraphStore.getState();
 
-      // Find all siblings (subtasks of the same parent)
       const siblingNodes = fullNodes.filter(
         (n) => n.type === 'subtask' && (n.data as SubtaskNodeData).parentId === parentId
       );
 
-      // Check if all siblings are complete (including this one's new status)
       const allSiblingsComplete = siblingNodes.every((n) => {
         if (n.id === `subtask-${subtaskId}`) return newStatus === 'complete';
         return (n.data as SubtaskNodeData).status.toLowerCase() === 'complete';
@@ -111,7 +137,6 @@ export function useSubtaskDetail(node: AppNode) {
           return n;
         });
 
-        // If all siblings are complete, parent also becomes complete
         if (allSiblingsComplete) {
           const parentConfig = getStatusFromConfig('complete');
           updatedFullNodes = updatedFullNodes.map((n) => {
@@ -129,7 +154,6 @@ export function useSubtaskDetail(node: AppNode) {
           });
         }
 
-        // Find the newly updated selectedNode
         const updatedSelectedNode = updatedFullNodes.find((n) => n.id === node.id) || null;
 
         return {
@@ -159,7 +183,6 @@ export function useSubtaskDetail(node: AppNode) {
             };
             newListTasksMap[listId][taskIndex] = updatedTask;
 
-            // Also check if we should update the parent task in the query cache
             if (allSiblingsComplete) {
               const parentIndex = newListTasksMap[listId].findIndex((t) => t.id === parentId);
               if (parentIndex !== -1) {
@@ -182,11 +205,9 @@ export function useSubtaskDetail(node: AppNode) {
         return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
       });
 
-      // 3. API update call
       await updateTask(subtaskId, { status: newStatus });
     } catch (err) {
       console.error('Failed to update subtask status:', err);
-      // Rollback to previous state on error
       if (previousData) {
         queryClient.setQueryData(queryKey, previousData);
       }
@@ -196,7 +217,74 @@ export function useSubtaskDetail(node: AppNode) {
     }
   };
 
+  // --- HANDLERS INTERNOS DO CHECKLIST ---
+  const handleAddItemLocal = () => {
+    if (!newItemName.trim()) return;
+
+    const defaultChecklistId = subtask.checklists?.[0]?.id || '';
+    const newItem: ChecklistItemPayload = {
+      id: `temp-item-${Date.now()}`,
+      name: newItemName.trim(),
+      resolved: false,
+      checklistId: defaultChecklistId,
+      isNew: true,
+    };
+
+    setItems((prev) => [...prev, newItem]);
+    setPendingItems((prev) => [...prev, newItem]);
+    setNewItemName('');
+  };
+
+  const handleCheckboxChange = (itemId: string, checked: boolean) => {
+    setItems((prevItems) =>
+      prevItems.map((item) => {
+        if (item.id === itemId) {
+          const updated = { ...item, resolved: checked };
+          setPendingItems((prevPending) => {
+            const clean = prevPending.filter((p) => p.id !== itemId);
+            return [...clean, updated];
+          });
+          return updated;
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleNameChange = (itemId: string, name: string) => {
+    setItems((prevItems) =>
+      prevItems.map((item) => {
+        if (item.id === itemId) {
+          const updated = { ...item, name };
+          setPendingItems((prevPending) => {
+            const clean = prevPending.filter((p) => p.id !== itemId);
+            return [...clean, updated];
+          });
+          return updated;
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleSaveChecklist = async () => {
+    setIsSavingChecklist(true);
+    const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
+
+    try {
+      await saveChecklistMutation(subtask.taskId, pendingItems);
+      setPendingItems([]);
+      queryClient.invalidateQueries({ queryKey });
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao salvar o checklist. Tente novamente.');
+    } finally {
+      setIsSavingChecklist(false);
+    }
+  };
+
   return {
+    // Retornos originais
     localName,
     setLocalName,
     localStatus,
@@ -204,5 +292,16 @@ export function useSubtaskDetail(node: AppNode) {
     inputRef,
     handleTaskKeyDown,
     handleStatusChange,
+
+    // Novos retornos de checklist
+    items,
+    newItemName,
+    setNewItemName,
+    isSavingChecklist,
+    isChecklistDirty,
+    handleAddItemLocal,
+    handleCheckboxChange,
+    handleNameChange,
+    handleSaveChecklist,
   };
 }

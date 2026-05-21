@@ -1,4 +1,4 @@
-import { ClickUpTask, ClickUpList } from '@/types/clickup';
+import { ClickUpTask, ClickUpList, ChecklistItemPayload } from '@/types/clickup';
 import { SEASON_MAP, type Season, TRIMESTRE_FIELD_ID } from '@/config/quarters';
 import { BASE_URL, getHeaders } from './api';
 import { getStatusFromConfig } from '@/config/status';
@@ -80,7 +80,7 @@ export async function updateTask(
   if (updates.name || updates.status) {
     const body: any = {};
     if (updates.name) body.name = updates.name;
-    
+
     let statusToSend = updates.status;
     let labelFallback = '';
 
@@ -188,4 +188,20 @@ export async function removeTagFromTask(
     const error = await res.text();
     throw new Error(`Remove tag error [${res.status}]: ${error}`);
   }
+}
+
+export async function saveChecklistMutation(taskId: string, items: ChecklistItemPayload[]) {
+  const res = await fetch(`/api/clickup/tasks/${taskId}/checklist`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ items }),
+  });
+
+  if (!res.ok) {
+    throw new Error('Erro ao salvar o checklist');
+  }
+
+  return res.json();
 }
