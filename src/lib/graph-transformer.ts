@@ -182,6 +182,34 @@ export function transformClickUpToGraph(
           ...defaultEdge(info.listNodeId, taskNodeId),
           style: { stroke: info.listColor + '55', strokeWidth: 1 },
         });
+
+        // Add subtask nodes
+        const subtasks = info.tasks.filter(t => t.parent === task.id);
+        for (const sub of subtasks) {
+          const subtaskNodeId = `subtask-${sub.id}`;
+          nodes.push({
+            id: subtaskNodeId,
+            type: 'subtask',
+            position: { x: 0, y: 0 },
+            data: {
+              label: sub.name,
+              taskId: sub.id,
+              parentId: task.id,
+              status: sub.status?.status ?? '',
+              statusColor: sub.status?.color ?? '#999',
+              state: taskState,
+              collapsed: getDefaultCollapsed('subtask'),
+              url: sub.url ?? '',
+              time_spent: sub.time_spent ?? 0,
+              checklists: sub.checklists ?? [],
+            },
+          });
+
+          edges.push({
+            ...defaultEdge(taskNodeId, subtaskNodeId),
+            style: { stroke: info.listColor + '44', strokeWidth: 1, strokeDasharray: '4 4' },
+          });
+        }
       }
     }
   }

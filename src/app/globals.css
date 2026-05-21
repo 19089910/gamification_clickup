@@ -73,6 +73,7 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
 button {
   cursor: pointer;
   font-family: inherit;
@@ -83,13 +84,16 @@ button {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--border-3);
   border-radius: 999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #444;
 }
@@ -251,12 +255,10 @@ button {
 
 /* Loading skeleton */
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--surface-2) 25%,
-    var(--surface-3) 50%,
-    var(--surface-2) 75%
-  );
+  background: linear-gradient(90deg,
+      var(--surface-2) 25%,
+      var(--surface-3) 50%,
+      var(--surface-2) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
   border-radius: var(--r-sm);
@@ -266,6 +268,7 @@ button {
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }
@@ -287,12 +290,14 @@ button {
   font-size: 40px;
   margin-bottom: 16px;
 }
+
 .error-title {
   font-size: 18px;
   font-weight: 600;
   color: var(--text-1);
   margin-bottom: 8px;
 }
+
 .error-msg {
   font-size: 13px;
   color: var(--text-3);
@@ -374,6 +379,7 @@ button {
 .react-flow__node {
   cursor: pointer;
 }
+
 .react-flow__controls button {
   background: var(--surface-1) !important;
   border: 1px solid var(--border-2) !important;
@@ -381,13 +387,16 @@ button {
   color: var(--text-2) !important;
   transition: background var(--t-fast) !important;
 }
+
 .react-flow__controls button:last-child {
   border-bottom: 1px solid var(--border-2) !important;
 }
+
 .react-flow__controls button:hover {
   background: var(--surface-3) !important;
   color: var(--text-1) !important;
 }
+
 .react-flow__controls-interactive {
   display: none !important;
 }
@@ -635,8 +644,15 @@ button {
 }
 
 @keyframes pulse-handle {
-  from { transform: scale(0.85); opacity: 0.6; }
-  to { transform: scale(1.15); opacity: 1; }
+  from {
+    transform: scale(0.85);
+    opacity: 0.6;
+  }
+
+  to {
+    transform: scale(1.15);
+    opacity: 1;
+  }
 }
 
 .dev-confirm-overlay {
@@ -647,11 +663,19 @@ button {
 }
 
 @keyframes fadeInRight {
-  from { opacity: 0; transform: translateX(10px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-.btn-confirm-yes, .btn-confirm-no {
+.btn-confirm-yes,
+.btn-confirm-no {
   font-size: 10px;
   font-weight: 700;
   padding: 4px 10px;
@@ -695,6 +719,18 @@ button {
   min-width: 180px;
   max-width: 230px;
   padding: 10px 14px;
+}
+
+/* SUBTASK node */
+.subtask-node {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 140px;
+  max-width: 180px;
+  padding: 6px 10px;
+  position: relative;
 }
 
 .task-header {
@@ -787,6 +823,7 @@ button {
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -834,6 +871,7 @@ button {
   color: #a78bfa;
   border-color: #7c3aed44;
 }
+
 .folder-badge-lg {
   background: #0ea5e922;
   color: #38bdf8;
@@ -876,6 +914,7 @@ button {
   font-size: 12px;
   color: var(--text-3);
 }
+
 .detail-value {
   font-size: 12px;
   color: var(--text-1);
@@ -1108,13 +1147,25 @@ button {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
-  from { transform: translateY(20px) scale(0.98); opacity: 0; }
-  to { transform: translateY(0) scale(1); opacity: 1; }
+  from {
+    transform: translateY(20px) scale(0.98);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 /* ============================================================
@@ -1124,7 +1175,7 @@ button {
 .node-collapse-toggle {
   position: absolute;
   top: 50%;
-  right: -8px; 
+  right: -8px;
   transform: translateY(-50%);
   width: 16px;
   height: 16px;
@@ -1452,7 +1503,8 @@ button {
 .detail-status-select {
   background: var(--surface-2);
   border: 1px solid var(--border-2);
-  border-radius: 999px; /* Pill shape like a badge */
+  border-radius: 999px;
+  /* Pill shape like a badge */
   color: var(--text-2);
   font-size: 10px;
   font-weight: 700;
@@ -1537,8 +1589,15 @@ button {
 }
 
 @keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .layout-settings-header {
@@ -1645,4 +1704,128 @@ button {
   text-align: center;
   font-size: 10px;
   color: var(--text-3);
+}
+
+.tracked-time-pill {
+  width: 100%;
+  min-width: 180px;
+  height: 34px;
+
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0f0f0f;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  overflow: hidden;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* conteúdo principal */
+.tracked-time-content {
+  flex: 1;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* força quebra: Tempo / Rastreado */
+.tracked-time-label {
+  width: 70px;
+
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+
+  color: rgba(217, 197, 160, 0.55);
+
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* HERO do componente */
+.tracked-time-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+
+  color: #f1dfbd;
+
+  text-shadow:
+    0 0 12px rgba(217, 197, 160, 0.12);
+}
+
+/* botão play totalmente à direita */
+.tracked-time-play {
+  margin-left: auto;
+
+  width: 38px;
+  min-width: 38px;
+  height: 100%;
+
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+
+  background: rgba(255, 255, 255, 0.02);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: #d9c5a0;
+  font-size: 12px;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.tracked-time-play:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ===========================
+   TIMER ATIVO (vermelho)
+=========================== */
+.tracked-time-pill.active {
+  background: #ef444422;
+  border: 1px solid #ef444444;
+
+  box-shadow:
+    inset 0 0 8px #ef444411,
+    0 0 10px #ef44441a;
+}
+
+.tracked-time-pill.active .tracked-time-label {
+  color: #fca5a5;
+}
+
+.tracked-time-pill.active .tracked-time-value {
+  color: #f87171;
+}
+
+.tracked-time-pill.active .tracked-time-play {
+  background: #ef444422;
+  border-left: 1px solid #ef444444;
+  color: #f87171;
+}
+
+.tracked-time-pill.active .tracked-time-play:hover {
+  background: #ef444433;
 }

@@ -21,6 +21,7 @@ import FolderNode from "./nodes/FolderNode";
 import ListNode from "./nodes/ListNode";
 import TaskNode from "./nodes/TaskNode";
 import TempNode from "./nodes/TempNode";
+import SubtaskNode from "./nodes/SubtaskNode";
 
 const nodeTypes: NodeTypes = {
   space: SpaceNode,
@@ -28,6 +29,7 @@ const nodeTypes: NodeTypes = {
   list: ListNode,
   task: TaskNode,
   temp: TempNode as any,
+  subtask: SubtaskNode,
 };
 
 const proOptions = { hideAttribution: false };
@@ -200,6 +202,7 @@ export default function GraphCanvas() {
               case "folder":  return "#0ea5e9";
               case "list":    return "#10b981";
               case "task":    return "#f59e0b";
+              case "subtask": return "#ec4899";
               case "temp":    return "#555";
               default:        return "#333";
             }

@@ -19,6 +19,7 @@ export const createUiSlice: StateCreator<GraphStore, [], [], UiSlice> = (set) =>
       folder: 40,
       list: 45,
       task: 15,
+      subtask: 12,
     },
   },
   

@@ -77,7 +77,12 @@ export default function MilestoneDetailPage({ params }: { params: Promise<{ list
           </div>
 
           <aside className="milestone-sidebar">
-            <ProgressOverview epics={[]} issues={milestone?.subtasks || []} totalProgress={progress} />
+            <ProgressOverview
+              openCount={openCount}
+              closedCount={closedCount}
+              totalCount={milestone?.subtasks?.length || 0}
+              progress={progress}
+            />
           </aside>
         </main>
       </div>

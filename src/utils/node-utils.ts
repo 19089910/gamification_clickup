@@ -10,7 +10,7 @@ export function cleanListName(name: string): string {
   return name.replace(/\[.*?\]|\(.*?\)/g, '').trim();
 }
 
-type NodeType = 'space' | 'folder' | 'list' | 'task';
+type NodeType = 'space' | 'folder' | 'list' | 'task' | 'subtask';
 
 export function getDefaultCollapsed(type: NodeType): boolean {
   switch (type) {
@@ -21,6 +21,8 @@ export function getDefaultCollapsed(type: NodeType): boolean {
     case 'list':
       return false;
     case 'task':
+      return false;
+    case 'subtask':
       return false;
     default:
       return false;

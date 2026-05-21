@@ -105,6 +105,7 @@ export interface ClickUpTask {
   custom_fields?: ClickUpCustomField[];
   /** ClickUp native: 1 for Milestone, null or 0 for regular Task */
   custom_item_id?: number | null;
+  time_spent?: number;
   checklists?: { id: string; name: string; items: { id: string; name: string; resolved: boolean }[] }[];
 }
 

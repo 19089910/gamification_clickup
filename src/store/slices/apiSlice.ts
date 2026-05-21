@@ -21,7 +21,7 @@ export const createApiSlice: StateCreator<GraphStore, [], [], ApiSlice> = (set) 
 
   updateTask: async (taskId, updates) => {
     set((state) => {
-      const targetNode = state.fullNodes.find(n => n.id === `task-${taskId}`);
+      const targetNode = state.fullNodes.find(n => n.id === `task-${taskId}` || n.id === `subtask-${taskId}`);
       if (!targetNode) return state;
 
       let newColor = targetNode.data.statusColor;
@@ -36,7 +36,7 @@ export const createApiSlice: StateCreator<GraphStore, [], [], ApiSlice> = (set) 
         newState = (!sq || updates.quarter === sq) ? 'active' : 'inactive';
       }
 
-      const newFullNodes = updateNodeData(state.fullNodes, `task-${taskId}`, {
+      const newFullNodes = updateNodeData(state.fullNodes, targetNode.id, {
         label: updates.name || targetNode.data.label,
         quarter: updates.quarter || targetNode.data.quarter,
         status: updates.status || targetNode.data.status,

@@ -15,6 +15,7 @@ export interface FolderNodeData {
   label: string;
   folderId: string;
   listCount: number;
+  taskCount?: number;
   state?: NodeState;
   color?: string;
   collapsed: boolean;
@@ -54,6 +55,20 @@ export interface TaskNodeData {
 
 
 
+export interface SubtaskNodeData {
+  label: string;
+  taskId: string;
+  parentId: string;
+  status: string;
+  statusColor: string;
+  state: NodeState;
+  collapsed: boolean;
+  url?: string;
+  time_spent?: number;
+  checklists?: { id: string; name: string; items: { id: string; name: string; resolved: boolean }[] }[];
+  [key: string]: unknown;
+}
+
 export interface TempNodeData {
   label: string;
   isTemp: boolean;
@@ -69,8 +84,9 @@ export type FolderNode = Node<FolderNodeData, 'folder'>;
 export type ListNode = Node<ListNodeData, 'list'>;
 export type TaskNode = Node<TaskNodeData, 'task'>;
 export type TempNode = Node<TempNodeData, 'temp'>;
+export type SubtaskNode = Node<SubtaskNodeData, 'subtask'>;
 
-export type AppNode = SpaceNode | FolderNode | ListNode | TaskNode | TempNode;
+export type AppNode = SpaceNode | FolderNode | ListNode | TaskNode | TempNode | SubtaskNode;
 export type AppEdge = Edge;
 
 
@@ -106,6 +122,7 @@ export interface LayoutSettings {
     folder: number;
     list: number;
     task: number;
+    subtask: number;
   };
 }
 
