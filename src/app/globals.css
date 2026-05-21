@@ -812,7 +812,7 @@ button {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   animation: slideIn var(--t-base) ease;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -1738,7 +1738,7 @@ button {
 
 /* força quebra: Tempo / Rastreado */
 .tracked-time-label {
-  width: 70px;
+  width: 80px;
 
   font-size: 9px;
   font-weight: 700;
@@ -1750,6 +1750,8 @@ button {
 
   white-space: normal;
   word-break: break-word;
+
+  padding-left: 10px;
 }
 
 /* HERO do componente */

@@ -6,9 +6,10 @@ import { GraphApiResponse } from '@/hooks/useClickUpData';
 import { getStatusFromConfig } from '@/config/status';
 import { TRIMESTRE_FIELD_ID, SEASON_MAP, type Season } from '@/config/quarters';
 import { extractTagsFromName } from '@/utils/label-parser';
+import { getStatusCategory } from '@/lib/status-sync';
+import { SubtaskNodeData, AppNode } from '@/types/graph';
 
-
-export function useTaskDetail(node: any) {
+export function useTaskDetail(node: AppNode) {
   const { updateTask, selectedQuarter, setSidebarOpen, updateNodeTags } = useGraphStore();
   const queryClient = useQueryClient();
 
@@ -27,7 +28,7 @@ export function useTaskDetail(node: any) {
     setLocalName(task.label as string);
     const resolvedQuarter = task.quarter && isSeason(task.quarter) ? task.quarter : selectedQuarter;
     setLocalQuarter(resolvedQuarter ?? undefined);
-    
+
     const statusConfig = getStatusFromConfig(task.status);
     setLocalStatus(statusConfig?.id || task.status.toLowerCase());
   }, [task.label, task.quarter, task.status, selectedQuarter]);
@@ -55,11 +56,11 @@ export function useTaskDetail(node: any) {
           if (taskIndex !== -1) {
             const originalTask = newListTasksMap[listId][taskIndex];
             const updatedTask = { ...originalTask, name: localName };
-            
+
             if (localQuarter && SEASON_MAP[localQuarter]) {
               const cfIndex = updatedTask.custom_fields?.findIndex(cf => cf.id === TRIMESTRE_FIELD_ID);
               const customFields = [...(updatedTask.custom_fields || [])];
-              
+
               if (cfIndex !== undefined && cfIndex !== -1) {
                 customFields[cfIndex] = { ...customFields[cfIndex], value: SEASON_MAP[localQuarter] };
               }
@@ -72,7 +73,7 @@ export function useTaskDetail(node: any) {
             if (tagsToAdd.length > 0) {
               updateNodeTags(task.taskId, newTags);
             }
-            
+
             newListTasksMap[listId][taskIndex] = updatedTask;
             taskFound = true;
             break;
@@ -80,8 +81,8 @@ export function useTaskDetail(node: any) {
         }
         return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
       });
-    // 3. API call
-    await updateTask(task.taskId as string, { ...updates, tags: tagsToAdd });
+      // 3. API call
+      await updateTask(task.taskId as string, { ...updates, tags: tagsToAdd });
     } catch (err) {
       console.error('Failed to update task:', err);
       if (previousData) {
@@ -102,7 +103,7 @@ export function useTaskDetail(node: any) {
     const newQ = e.target.value as Season;
     setLocalQuarter(newQ);
     setIsSaving(true);
-    
+
     const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
     const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
 
@@ -117,11 +118,11 @@ export function useTaskDetail(node: any) {
           if (taskIndex !== -1) {
             const originalTask = newListTasksMap[listId][taskIndex];
             const updatedTask = { ...originalTask, name: localName };
-            
+
             if (newQ && SEASON_MAP[newQ]) {
               const cfIndex = updatedTask.custom_fields?.findIndex(cf => cf.id === TRIMESTRE_FIELD_ID);
               const customFields = [...(updatedTask.custom_fields || [])];
-              
+
               if (cfIndex !== undefined && cfIndex !== -1) {
                 customFields[cfIndex] = { ...customFields[cfIndex], value: SEASON_MAP[newQ] };
               } else {
@@ -154,10 +155,20 @@ export function useTaskDetail(node: any) {
     const newStatusIdOrName = e.target.value;
     setLocalStatus(newStatusIdOrName);
     setIsSaving(true);
-    
+
     const statusConfig = getStatusFromConfig(newStatusIdOrName);
     const newColor = statusConfig?.color || task.statusColor;
     const newLabel = statusConfig?.label.toLowerCase() || newStatusIdOrName;
+
+    // Regra 2 — se pai vai para Ativo, filhos planning seguem
+    const newCategory = getStatusCategory(newStatusIdOrName);
+    const { fullNodes } = useGraphStore.getState();
+    const childNodes = fullNodes.filter(
+      n => n.type === 'subtask' && (n.data as SubtaskNodeData).parentId === task.taskId
+    );
+    const childrenToSync = newCategory === 'active'
+      ? childNodes.filter(n => getStatusCategory((n.data as SubtaskNodeData).status) === 'inactive')
+      : [];
 
     const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
     const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
@@ -171,16 +182,35 @@ export function useTaskDetail(node: any) {
         for (const listId in newListTasksMap) {
           const taskIndex = newListTasksMap[listId].findIndex(t => t.id === task.taskId);
           if (taskIndex !== -1) {
-            const originalTask = newListTasksMap[listId][taskIndex];
-            const updatedTask = { 
-              ...originalTask, 
-              status: { 
-                ...originalTask.status, 
+            // atualiza o pai
+            newListTasksMap[listId][taskIndex] = {
+              ...newListTasksMap[listId][taskIndex],
+              status: {
+                ...newListTasksMap[listId][taskIndex].status,
                 status: statusConfig?.id || newLabel,
-                color: newColor 
-              } 
+                color: newColor,
+              },
             };
-            newListTasksMap[listId][taskIndex] = updatedTask;
+
+            // atualiza os filhos planning no cache
+            if (childrenToSync.length > 0) {
+              const childConfig = statusConfig;
+              newListTasksMap[listId] = newListTasksMap[listId].map(t => {
+                const isChild = childrenToSync.some(
+                  n => (n.data as SubtaskNodeData).taskId === t.id
+                );
+                if (!isChild) return t;
+                return {
+                  ...t,
+                  status: {
+                    ...t.status,
+                    status: childConfig?.id || newLabel,
+                    color: childConfig?.color || newColor,
+                  },
+                };
+              });
+            }
+
             taskFound = true;
             break;
           }
@@ -188,7 +218,34 @@ export function useTaskDetail(node: any) {
         return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
       });
 
-      await updateTask(task.taskId as string, { status: statusConfig?.id || newStatusIdOrName });
+      // Zustand otimista — pai
+      useGraphStore.setState(state => ({
+        fullNodes: state.fullNodes.map(n => {
+          if (n.id === `task-${task.taskId}`) {
+            return {
+              ...n,
+              data: { ...n.data, status: statusConfig?.id || newLabel, statusColor: newColor },
+            } as AppNode;
+          }
+          // filhos planning → seguem o pai
+          if (childrenToSync.some(c => c.id === n.id)) {
+            return {
+              ...n,
+              data: { ...n.data, status: statusConfig?.id || newLabel, statusColor: newColor },
+            } as AppNode;
+          }
+          return n;
+        }),
+      }));
+
+      // API — pai + filhos em paralelo
+      await Promise.all([
+        updateTask(task.taskId as string, { status: statusConfig?.id || newStatusIdOrName }),
+        ...childrenToSync.map(n =>
+          updateTask((n.data as SubtaskNodeData).taskId, { status: statusConfig?.id || newStatusIdOrName })
+        ),
+      ]);
+
     } catch (err) {
       console.error('Failed to update task status:', err);
       if (previousData) queryClient.setQueryData(queryKey, previousData);

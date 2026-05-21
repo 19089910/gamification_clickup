@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppNode, SubtaskNodeData } from '@/types/graph';
 import { STATUS_CONFIG, getStatusFromConfig } from '@/config/status';
 import { useSubtaskDetail } from '@/hooks/useSubtaskDetail';
 import { useGraphStore } from '@/store/graphStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { GraphApiResponse } from '@/hooks/useClickUpData';
+import { InlineNameEditor } from './InlineNameEditor';
 
 function formatTrackedTime(ms: number | undefined): string {
   if (!ms) return '0m';
@@ -25,8 +26,17 @@ interface ChecklistItem {
 }
 
 export function SubtaskDetail({ node }: { node: AppNode }) {
+  const inputRef = useRef<HTMLInputElement>(null);
   const subtask = node.data as SubtaskNodeData;
-  const { localStatus, isSaving, handleStatusChange } = useSubtaskDetail(node);
+  const {
+    localName,
+    setLocalName,
+    localStatus,
+    isSaving,
+    handleTaskKeyDown,
+    handleStatusChange,
+  } = useSubtaskDetail(node);
+
   const queryClient = useQueryClient();
 
   const getInitialChecklistItems = (): ChecklistItem[] => {
@@ -229,41 +239,15 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
       </div>
 
 
-      <style jsx>{`
-  .tracked-time-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
-    border-radius: 999px;
-    border: 1px solid #444;
-    background: #111;
-    font-size: 13px;
-    color: #aaa;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.05);
-  }
-
-  .tracked-time-play {
-    background: none;
-    border: none;
-    color: #666;
-    cursor: pointer;
-    font-size: 14px;
-    padding: 0;
-    line-height: 1;
-    transition: color 0.2s;
-  }
-
-  .tracked-time-play:hover {
-    color: #fff;
-  }
-`}</style>
-      <div className="detail-title-container" style={{ margin: '8px 0' }}>
-        <h2 className="detail-title" style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginTop: '4px' }}>
-          {subtask.label}
-        </h2>
-      </div>
-
+      <InlineNameEditor
+        inputRef={inputRef}
+        value={localName}
+        onChange={(e) => setLocalName(e.target.value)}
+        onKeyDown={handleTaskKeyDown}
+        placeholder="Nome da task..."
+        disabled={isSaving}
+        isSaving={isSaving}
+      />
 
 
       {items.length > 0 && (
