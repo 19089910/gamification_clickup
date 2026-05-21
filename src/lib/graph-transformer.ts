@@ -63,12 +63,29 @@ export function transformClickUpToGraph(
     const listInfos = lists.map(list => {
       const tasks = listTasksMap.get(list.id) ?? [];
       const quarters = getListQuarters(tasks);
-      const primaryQuarter = getPrimaryQuarter(quarters);
+      
+      // Resolve primary quarter by checking list name first, then fallback to tasks' quarters
+      const nameUpper = list.name.toUpperCase();
+      let primaryQuarter: string | null = null;
+      if (nameUpper.includes('SUMMER')) primaryQuarter = 'SUMMER';
+      else if (nameUpper.includes('FALL')) primaryQuarter = 'FALL';
+      else if (nameUpper.includes('WINTER')) primaryQuarter = 'WINTER';
+      else if (nameUpper.includes('SPRING')) primaryQuarter = 'SPRING';
+
+      if (!primaryQuarter) {
+        primaryQuarter = getPrimaryQuarter(quarters);
+      }
+
+      // Ensure that if a primaryQuarter is resolved, it is present in the quarters array
+      const resolvedQuarters = [...quarters];
+      if (primaryQuarter && !resolvedQuarters.includes(primaryQuarter)) {
+        resolvedQuarters.push(primaryQuarter);
+      }
 
       return {
         list,
         tasks,
-        quarters,
+        quarters: resolvedQuarters,
         primaryQuarter,
         listNodeId: `list-${list.id}`,
         listColor: folderColor,
@@ -78,8 +95,9 @@ export function transformClickUpToGraph(
 
     const order = ['SUMMER', 'FALL', 'WINTER', 'SPRING'];
 
+    // activeQuarters only filters by primaryQuarter to avoid missing/disconnected intermediates
     const activeQuarters = order.filter(q =>
-      listInfos.some(l => l.quarters.includes(q))
+      listInfos.some(l => l.primaryQuarter === q)
     );
 
     for (const info of listInfos) {
@@ -102,7 +120,7 @@ export function transformClickUpToGraph(
         },
       });
 
-      if (!info.primaryQuarter) {
+      if (!info.primaryQuarter || !activeQuarters.includes(info.primaryQuarter)) {
         edges.push(defaultEdge(folderNodeId, info.listNodeId));
       } else {
         const qIndex = activeQuarters.indexOf(info.primaryQuarter);
@@ -112,8 +130,9 @@ export function transformClickUpToGraph(
         } else {
           const prevQ = activeQuarters[qIndex - 1];
 
+          // Filter by primaryQuarter so we link directly and sequentially to the previous season's lists
           const prevLists = listInfos.filter(l =>
-            l.quarters.includes(prevQ)
+            l.primaryQuarter === prevQ
           );
 
           for (const prev of prevLists) {

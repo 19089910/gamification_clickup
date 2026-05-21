@@ -24,12 +24,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Step 3: Create the "geral" task
-    let taskCreated = false;
+    let taskCreated: any = null;
     let taskError = null;
     
     try {
-      await createTask(list.id, "geral", quarter);
-      taskCreated = true;
+      taskCreated = await createTask(list.id, "geral", quarter);
     } catch (error) {
       console.error("Failed to create 'geral' task:", error);
       taskError = error instanceof Error ? error.message : 'Unknown error';

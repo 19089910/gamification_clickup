@@ -1,4 +1,5 @@
-export function parseLabelWithBrackets(name: string) {
+export function parseLabelWithBrackets(name?: string | null) {
+  if (!name || typeof name !== 'string') return [];
   const parts = name.split(/(\[.*?\])/g);
 
   return parts.map((part, i) => {
@@ -14,7 +15,8 @@ export function parseLabelWithBrackets(name: string) {
 }
 
 // extrai ['Epic-05', 'RNF-04'] do nome
-export function extractTagsFromName(name: string): string[] {
+export function extractTagsFromName(name?: string | null): string[] {
+  if (!name || typeof name !== 'string') return [];
   const matches = name.match(/\[([^\]]+)\]/g) ?? [];
   return matches.map(m => m.slice(1, -1));
 }
