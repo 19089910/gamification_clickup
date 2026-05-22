@@ -4,7 +4,7 @@ import { useGraphStore } from '@/store/graphStore';
 import { AppNode, SubtaskNodeData } from '@/types/graph';
 import { GraphApiResponse } from '@/hooks/useClickUpData';
 import { getStatusFromConfig } from '@/config/status';
-import { saveChecklistMutation } from '@/lib/clickup/mutations';
+import { saveChecklistMutation, toggleTimerMutation } from '@/lib/clickup/mutations';
 import { ChecklistItemPayload } from '@/types/clickup';
 
 export function useSubtaskDetail(node: AppNode) {
@@ -282,6 +282,33 @@ export function useSubtaskDetail(node: AppNode) {
       setIsSavingChecklist(false);
     }
   };
+  // Pode iniciar baseado em alguma flag que venha da API se a task já tiver um timer ativo
+  const [isTimerActive, setIsTimerActive] = useState(false);
+  const [isSavingTimer, setIsSavingTimer] = useState(false);
+
+  const handleToggleTimer = async () => {
+    if (isSavingTimer) return;
+
+    const action = isTimerActive ? 'stop' : 'start';
+    setIsSavingTimer(true);
+
+    // Optimistic update visual rápido na tela
+    setIsTimerActive(!isTimerActive);
+
+    try {
+      await toggleTimerMutation(subtask.taskId, action);
+
+      // Invalida o grafo para recalcular e trazer o "time_spent" atualizado do backend
+      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+    } catch (err) {
+      console.error(err);
+      // Desfaz o estado caso a API falhe
+      setIsTimerActive(isTimerActive);
+      alert('Não foi possível alterar o timer no ClickUp.');
+    } finally {
+      setIsSavingTimer(false);
+    }
+  };
 
   return {
     // Retornos originais
@@ -303,5 +330,10 @@ export function useSubtaskDetail(node: AppNode) {
     handleCheckboxChange,
     handleNameChange,
     handleSaveChecklist,
+
+    // Novos retornos de timer
+    isTimerActive,
+    isSavingTimer,
+    handleToggleTimer,
   };
 }

@@ -1738,9 +1738,24 @@ button {
 /* ===========================
     TIMER ATIVO (vermelho)
 =========================== */
+@keyframes pulse-red {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
 .tracked-time-pill.active {
   border-color: #ef4444;
-  background: rgba(239, 68, 68, 0.05);
+  background: rgba(239, 68, 68, 0.04);
+  animation: pulse-red 2s infinite;
 }
 
 .tracked-time-pill.active .tracked-time-value {

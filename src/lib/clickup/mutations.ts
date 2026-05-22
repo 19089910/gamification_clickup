@@ -205,3 +205,14 @@ export async function saveChecklistMutation(taskId: string, items: ChecklistItem
 
   return res.json();
 }
+
+export async function toggleTimerMutation(taskId: string, action: 'start' | 'stop') {
+  const res = await fetch(`/api/clickup/tasks/${taskId}/time`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action }),
+  });
+
+  if (!res.ok) throw new Error('Erro ao alterar estado do timer');
+  return res.json();
+}

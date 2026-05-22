@@ -5,11 +5,27 @@ import { useSubtaskDetail } from '@/hooks/useSubtaskDetail';
 import { InlineNameEditor } from './InlineNameEditor';
 
 function formatTrackedTime(ms: number | undefined): string {
-  if (!ms) return '0m';
-  const totalMinutes = Math.floor(ms / 60000);
+  if (!ms || ms <= 0) return '0s';
+
+  const totalSeconds = Math.floor(ms / 1000);
+  const totalMinutes = Math.floor(totalSeconds / 60);
   const hours = Math.floor(totalMinutes / 60);
+
   const minutes = totalMinutes % 60;
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  const seconds = totalSeconds % 60;
+
+  // Se tiver horas, mostra: Xh Ym
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  // Se tiver minutos mas menos de uma hora, mostra: Ym Zs (ou apenas Ym)
+  if (totalMinutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+
+  // Se for menos de um minuto, mostra os segundos purinhos! ex: 13s
+  return `${seconds}s`;
 }
 
 export function SubtaskDetail({ node }: { node: AppNode }) {
@@ -23,6 +39,7 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
     isSaving,
     handleTaskKeyDown,
     handleStatusChange,
+
     items,
     newItemName,
     setNewItemName,
@@ -32,6 +49,10 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
     handleCheckboxChange,
     handleNameChange,
     handleSaveChecklist,
+
+    isTimerActive,
+    isSavingTimer,
+    handleToggleTimer,
   } = useSubtaskDetail(node);
 
   return (
@@ -73,12 +94,24 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
       </div>
 
       {/* Pill de Tempo Rastreado com classe condicional '.active' */}
-      <div className={`tracked-time-pill ${true ? 'active' : ''}`}>
+      <div className={`tracked-time-pill ${isTimerActive ? 'active' : ''}`}>
         <div className="tracked-time-content">
-          <span className="tracked-time-label">Tempo Rastreado</span>
-          <span className="tracked-time-value">⏱ {formatTrackedTime(subtask.time_spent as number)}</span>
+          <span className="tracked-time-label">
+            {isTimerActive ? '⏱ Rastreando Tempo...' : 'Tempo Rastreado'}
+          </span>
+          <span className="tracked-time-value">
+            ⏱ {formatTrackedTime(subtask.time_spent as number)}
+          </span>
         </div>
-        <button className="tracked-time-play" onClick={() => { }}>▶</button>
+
+        <button
+          className="tracked-time-play"
+          onClick={handleToggleTimer}
+          disabled={isSavingTimer}
+          title={isTimerActive ? "Parar Cronômetro" : "Iniciar Cronômetro"}
+        >
+          {isTimerActive ? '■' : '▶'}
+        </button>
       </div>
 
       <InlineNameEditor
