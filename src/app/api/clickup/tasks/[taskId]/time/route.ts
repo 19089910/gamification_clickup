@@ -17,9 +17,9 @@ export async function POST(
         // 💡 IMPORTANTE: Substitua pelo ID real do seu Workspace do ClickUp.
         // Geralmente você pode ler do seu .env como: process.env.CLICKUP_TEAM_ID
         // Ou passar o ID direto temporariamente para testar, ex: "1234567"
-        const teamId = process.env.CLICKUP_TEAM_ID || "9017123456";
+        const teamId = process.env.CLICKUP_TEAM_ID;
 
-        if (teamId === "9017123456") {
+        if (!teamId) {
             console.error("❌ ERRO: Você esqueceu de configurar o CLICKUP_TEAM_ID!");
             return NextResponse.json({ error: "Configuração de Team ID ausente no servidor" }, { status: 500 });
         }

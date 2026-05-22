@@ -53,6 +53,7 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
     isTimerActive,
     isSavingTimer,
     handleToggleTimer,
+    additionalMs,
   } = useSubtaskDetail(node);
 
   return (
@@ -100,7 +101,11 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
             {isTimerActive ? '⏱ Rastreando Tempo...' : 'Tempo Rastreado'}
           </span>
           <span className="tracked-time-value">
-            ⏱ {formatTrackedTime(subtask.time_spent as number)}
+            {isSavingTimer ? (
+              <span className="animate-pulse text-gray-400">⏱ Atualizando tempo...</span>
+            ) : (
+              <>⏱ {formatTrackedTime((subtask.time_spent as number) + additionalMs)}</>
+            )}
           </span>
         </div>
 

@@ -282,28 +282,72 @@ export function useSubtaskDetail(node: AppNode) {
       setIsSavingChecklist(false);
     }
   };
-  // Pode iniciar baseado em alguma flag que venha da API se a task já tiver um timer ativo
+  // ==========================================
+  // CONTROLE DO TIMER VIA LOCALSTORAGE
+  // ==========================================
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [isSavingTimer, setIsSavingTimer] = useState(false);
+  const [additionalMs, setAdditionalMs] = useState(0);
 
+  // Chave única para o localStorage para não misturar tarefas
+  const STORAGE_KEY = `timer_task_${subtask.taskId}`;
+
+  // 1. Verifica o localStorage e liga o motor do timer
+  useEffect(() => {
+    const savedTimer = localStorage.getItem(STORAGE_KEY);
+
+    if (savedTimer && isTimerActive) { // 💡 Só liga o intervalo se o botão estiver em modo "Active"
+      const { startTime } = JSON.parse(savedTimer);
+
+      const updateTimer = () => {
+        const elapsed = Date.now() - startTime;
+        setAdditionalMs(elapsed);
+      };
+
+      updateTimer(); // Atualiza instantaneamente o número na tela sem delay de 1s
+      const interval = setInterval(updateTimer, 1000);
+
+      return () => clearInterval(interval);
+    } else if (!savedTimer) {
+      // Se o timer foi desligado e apagado do localStorage, zera tudo de forma segura
+      setAdditionalMs(0);
+    }
+  }, [subtask.taskId, isTimerActive]); // 💡 Adicionamos isTimerActive aqui!
+
+  // 2. Ação de Play/Stop manipulando o localStorage e a API
   const handleToggleTimer = async () => {
     if (isSavingTimer) return;
 
-    const action = isTimerActive ? 'stop' : 'start';
+    const willStop = isTimerActive;
     setIsSavingTimer(true);
 
-    // Optimistic update visual rápido na tela
-    setIsTimerActive(!isTimerActive);
+    // Otimistic Update na UI
+    setIsTimerActive(!willStop);
 
     try {
-      await toggleTimerMutation(subtask.taskId, action);
+      if (!willStop) {
+        // --- FLUXO DE START ---
+        const timerData = { startTime: Date.now() };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(timerData));
 
-      // Invalida o grafo para recalcular e trazer o "time_spent" atualizado do backend
-      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
+        await toggleTimerMutation(subtask.taskId, 'start');
+
+        // 💡 Note que NÃO invalidamos o grafo aqui! O front se vira com o localStorage.
+      } else {
+        // --- FLUXO DE STOP ---
+        await toggleTimerMutation(subtask.taskId, 'stop');
+
+        localStorage.removeItem(STORAGE_KEY);
+        setAdditionalMs(0);
+
+        // 💡 Só jogamos o cache do Grafo fora no STOP para puxar o tempo consolidado
+        const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
+        await queryClient.invalidateQueries({ queryKey });
+      }
+
     } catch (err) {
-      console.error(err);
-      // Desfaz o estado caso a API falhe
-      setIsTimerActive(isTimerActive);
+      console.error("Erro ao sincronizar cronômetro:", err);
+      setIsTimerActive(willStop);
       alert('Não foi possível alterar o timer no ClickUp.');
     } finally {
       setIsSavingTimer(false);
@@ -335,5 +379,6 @@ export function useSubtaskDetail(node: AppNode) {
     isTimerActive,
     isSavingTimer,
     handleToggleTimer,
+    additionalMs,
   };
 }

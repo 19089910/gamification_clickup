@@ -55,6 +55,7 @@ npm install
 
 ```env
 CLICKUP_API_TOKEN=your_token_here
+CLICKUP_TEAM_ID=your_token_here
 
 NEXT_PUBLIC_TRIMESTRE_FIELD_ID=your_id_here
 
