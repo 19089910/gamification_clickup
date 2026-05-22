@@ -58,7 +58,6 @@ export default function GraphCanvas() {
 
       const nodeParentId = tempNode.data.parentId as string;
       const parentType = tempNode.data.parentType as string;
-
       // Look up the actual ClickUp ID from the parent node's data
       const parentNode = useGraphStore.getState().fullNodes.find(n => n.id === nodeParentId);
 
@@ -184,6 +183,37 @@ export default function GraphCanvas() {
     }
   }, [selectedNode, setSelectedNode, addTempNode, expandPathToNode]);
 
+  // ── Hidratação do timer ao montar o app ──
+  useEffect(() => {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith('timer_task_')) continue;
+
+      const taskId = key.replace('timer_task_', '');
+      const saved = localStorage.getItem(key);
+      if (!saved) continue;
+
+      const { startTime, baseMs } = JSON.parse(saved);
+      useGraphStore.setState({
+        activeTimerTaskId: taskId,
+        timerStartTime: startTime,
+        additionalMs: Date.now() - startTime,
+        timerBaseMs: baseMs ?? 0,
+      });
+      break;
+    }
+  }, []);
+
+  // ── Ticker global — adicionar aqui ──
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const state = useGraphStore.getState();
+      if (state.activeTimerTaskId) {
+        state.tickTimer();
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: AppNode) => {

@@ -192,9 +192,17 @@ export interface HierarchySlice {
 export interface DevSlice {
   devPanelListId: string | null;
   isSyncingDevMode: boolean;
+  activeTimerTaskId: string | null;
+  timerStartTime: number | null;
+  additionalMs: number;
+  timerBaseMs: number;
+
   openDevPanel: (listId: string) => void;
   closeDevPanel: () => void;
-  toggleDevMode: (listId: string, tasks: any[], enable: boolean, queryClient: any) => Promise<void>;
+  startTimer: (taskId: string, baseMs?: number) => void;
+  stopTimer: () => void;
+  tickTimer: () => void;
+  toggleDevMode: (listId: string, tasks: any[], enable: boolean, queryClient?: any) => Promise<void>;
 }
 
 export type GraphStore = CoreSlice & UiSlice & ApiSlice & HierarchySlice & DevSlice;

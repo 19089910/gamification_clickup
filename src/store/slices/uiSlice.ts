@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { GraphStore, Quarter, LayoutSettings, UiSlice } from '@/types/graph';
+import { GraphStore, UiSlice } from '@/types/graph';
 import { getCurrentQuarter } from '../helpers';
 
 export const createUiSlice: StateCreator<GraphStore, [], [], UiSlice> = (set) => ({
@@ -22,26 +22,13 @@ export const createUiSlice: StateCreator<GraphStore, [], [], UiSlice> = (set) =>
       subtask: 0,
     },
   },
-
-  editTaskModal: {
-    isOpen: false,
-    taskId: '',
-    name: '',
-    quarter: '',
-  },
-
-  quarterPickerModal: {
-    isOpen: false,
-    listName: '',
-    folderId: '',
-    tempNodeId: '',
-  },
+  editTaskModal: { isOpen: false, taskId: '', name: '', quarter: '' },
+  quarterPickerModal: { isOpen: false, listName: '', folderId: '', tempNodeId: '' },
 
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
   setSidebarOpen: (open) => set({ isSidebarOpen: open }),
   setQuarter: (q) => set({ selectedQuarter: q }),
-
   updateLayoutSettings: (settings) => set((state) => ({
     layoutSettings: {
       ...state.layoutSettings,
@@ -52,11 +39,9 @@ export const createUiSlice: StateCreator<GraphStore, [], [], UiSlice> = (set) =>
       },
     },
   })),
-
   setEditTaskModal: (data) => set((state) => ({
-    editTaskModal: { ...state.editTaskModal, ...data }
+    editTaskModal: { ...state.editTaskModal, ...data },
   })),
-
   setQuarterPickerModal: (data) => set((state) => ({
     quarterPickerModal: { ...state.quarterPickerModal, ...data },
   })),

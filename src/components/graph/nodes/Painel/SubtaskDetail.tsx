@@ -5,7 +5,7 @@ import { useSubtaskDetail } from '@/hooks/useSubtaskDetail';
 import { InlineNameEditor } from './InlineNameEditor';
 
 function formatTrackedTime(ms: number | undefined): string {
-  if (!ms || ms <= 0) return '0s';
+  if (!ms || ms <= 0 || isNaN(ms)) return '0s';
 
   const totalSeconds = Math.floor(ms / 1000);
   const totalMinutes = Math.floor(totalSeconds / 60);
@@ -31,7 +31,6 @@ function formatTrackedTime(ms: number | undefined): string {
 export function SubtaskDetail({ node }: { node: AppNode }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const subtask = node.data as SubtaskNodeData;
-
   const {
     localName,
     setLocalName,
@@ -54,6 +53,7 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
     isSavingTimer,
     handleToggleTimer,
     additionalMs,
+    timerBaseMs
   } = useSubtaskDetail(node);
 
   return (
@@ -104,7 +104,11 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
             {isSavingTimer ? (
               <span className="animate-pulse text-gray-400">⏱ Atualizando tempo...</span>
             ) : (
-              <>⏱ {formatTrackedTime((subtask.time_spent as number) + additionalMs)}</>
+              <>⏱ {formatTrackedTime(
+                isTimerActive
+                  ? timerBaseMs + additionalMs
+                  : (subtask.time_spent as number ?? 0)
+              )}</>
             )}
           </span>
         </div>

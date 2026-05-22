@@ -27,7 +27,6 @@ export async function POST(
         const headers = getHeaders();
 
         if (action === "start") {
-            console.log(`[Timer] Tentando iniciar o cronômetro para a task: ${taskId} no Team: ${teamId}`);
 
             const res = await fetch(`${BASE_URL}/team/${teamId}/time_entries/start`, {
                 method: "POST",
@@ -46,8 +45,6 @@ export async function POST(
             return NextResponse.json({ success: true, tracking: true });
 
         } else {
-            console.log(`[Timer] Tentando parar o cronômetro ativo no Team: ${teamId}`);
-
             const res = await fetch(`${BASE_URL}/team/${teamId}/time_entries/stop`, {
                 method: "POST",
                 headers,

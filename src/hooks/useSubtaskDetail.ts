@@ -8,7 +8,16 @@ import { saveChecklistMutation, toggleTimerMutation } from '@/lib/clickup/mutati
 import { ChecklistItemPayload } from '@/types/clickup';
 
 export function useSubtaskDetail(node: AppNode) {
-  const { updateTask, setSidebarOpen } = useGraphStore();
+  // substituir a desestruturação atual por seletores individuais
+
+  const updateTask = useGraphStore(s => s.updateTask);
+  const setSidebarOpen = useGraphStore(s => s.setSidebarOpen);
+  const activeTimerTaskId = useGraphStore(s => s.activeTimerTaskId);
+  const additionalMs = useGraphStore(s => s.additionalMs);
+  const timerBaseMs = useGraphStore(s => s.timerBaseMs);
+  const startTimer = useGraphStore(s => s.startTimer);
+  const stopTimer = useGraphStore(s => s.stopTimer);
+
   const queryClient = useQueryClient();
   const subtask = node.data as SubtaskNodeData;
 
@@ -17,6 +26,10 @@ export function useSubtaskDetail(node: AppNode) {
   const [localStatus, setLocalStatus] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // --- ESTADOS DO TIMER ---
+  const [isSavingTimer, setIsSavingTimer] = useState(false);
+  const isTimerActive = activeTimerTaskId === subtask.taskId;
 
   // --- ESTADOS DO CHECKLIST ---
   const getInitialChecklistItems = (): ChecklistItemPayload[] => {
@@ -33,20 +46,18 @@ export function useSubtaskDetail(node: AppNode) {
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
   const [newItemName, setNewItemName] = useState('');
 
-  // Sincroniza estados gerais e de checklist quando o nó mudar
+  // Sincroniza estados quando o nó mudar
   useEffect(() => {
     setLocalName(subtask.label as string);
     const statusConfig = getStatusFromConfig(subtask.status);
     setLocalStatus(statusConfig?.id || subtask.status.toLowerCase());
-
-    // Sincroniza os itens de checklist locais
     setItems(getInitialChecklistItems());
     setPendingItems([]);
   }, [subtask.label, subtask.status, subtask.checklists]);
 
   const isChecklistDirty = pendingItems.length > 0;
 
-  // --- HANDLERS DO NOME E STATUS ---
+  // --- HANDLERS DO NOME ---
   const handleSaveName = async () => {
     if (!localName.trim() || localName === subtask.label) return;
 
@@ -55,25 +66,19 @@ export function useSubtaskDetail(node: AppNode) {
 
     setIsSaving(true);
     try {
-      // Optimistic update no cache
       queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
         if (!oldData) return oldData;
         const newListTasksMap = { ...oldData.listTasksMap };
-
         for (const listId in newListTasksMap) {
           const idx = newListTasksMap[listId].findIndex(t => t.id === subtask.taskId);
           if (idx !== -1) {
-            newListTasksMap[listId][idx] = {
-              ...newListTasksMap[listId][idx],
-              name: localName,
-            };
+            newListTasksMap[listId][idx] = { ...newListTasksMap[listId][idx], name: localName };
             break;
           }
         }
         return { ...oldData, listTasksMap: newListTasksMap };
       });
 
-      // Optimistic update no Zustand
       useGraphStore.setState(state => ({
         fullNodes: state.fullNodes.map(n =>
           n.id === `subtask-${subtask.taskId}`
@@ -97,6 +102,7 @@ export function useSubtaskDetail(node: AppNode) {
     if (e.key === 'Escape') setSidebarOpen(false);
   };
 
+  // --- HANDLER DE STATUS ---
   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newStatus = e.target.value;
     setLocalStatus(newStatus);
@@ -104,7 +110,6 @@ export function useSubtaskDetail(node: AppNode) {
 
     const parentId = subtask.parentId;
     const subtaskId = subtask.taskId;
-
     const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
     const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
 
@@ -120,19 +125,12 @@ export function useSubtaskDetail(node: AppNode) {
         return (n.data as SubtaskNodeData).status.toLowerCase() === 'complete';
       });
 
-      // 1. Optimistic Update inside Zustand
+      // 1. Optimistic Update no Zustand
       useGraphStore.setState((state) => {
         const config = getStatusFromConfig(newStatus);
         let updatedFullNodes = state.fullNodes.map((n) => {
           if (n.id === `subtask-${subtaskId}`) {
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                status: newStatus,
-                statusColor: config?.color || '#999',
-              },
-            } as AppNode;
+            return { ...n, data: { ...n.data, status: newStatus, statusColor: config?.color || '#999' } } as AppNode;
           }
           return n;
         });
@@ -141,28 +139,19 @@ export function useSubtaskDetail(node: AppNode) {
           const parentConfig = getStatusFromConfig('complete');
           updatedFullNodes = updatedFullNodes.map((n) => {
             if (n.id === `task-${parentId}`) {
-              return {
-                ...n,
-                data: {
-                  ...n.data,
-                  status: 'complete',
-                  statusColor: parentConfig?.color || '#0f9d9f',
-                },
-              } as AppNode;
+              return { ...n, data: { ...n.data, status: 'complete', statusColor: parentConfig?.color || '#0f9d9f' } } as AppNode;
             }
             return n;
           });
         }
 
-        const updatedSelectedNode = updatedFullNodes.find((n) => n.id === node.id) || null;
-
         return {
           fullNodes: updatedFullNodes,
-          selectedNode: updatedSelectedNode,
+          selectedNode: updatedFullNodes.find((n) => n.id === node.id) || null,
         };
       });
 
-      // 2. Optimistic Update inside React Query cache
+      // 2. Optimistic Update no React Query cache
       queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
         if (!oldData) return oldData;
         const newListTasksMap = { ...oldData.listTasksMap };
@@ -171,17 +160,11 @@ export function useSubtaskDetail(node: AppNode) {
         for (const listId in newListTasksMap) {
           const taskIndex = newListTasksMap[listId].findIndex((t) => t.id === subtaskId);
           if (taskIndex !== -1) {
-            const originalTask = newListTasksMap[listId][taskIndex];
             const config = getStatusFromConfig(newStatus);
-            const updatedTask = {
-              ...originalTask,
-              status: {
-                ...originalTask.status,
-                status: config?.id || newStatus,
-                color: config?.color || '#999',
-              },
+            newListTasksMap[listId][taskIndex] = {
+              ...newListTasksMap[listId][taskIndex],
+              status: { ...newListTasksMap[listId][taskIndex].status, status: config?.id || newStatus, color: config?.color || '#999' },
             };
-            newListTasksMap[listId][taskIndex] = updatedTask;
 
             if (allSiblingsComplete) {
               const parentIndex = newListTasksMap[listId].findIndex((t) => t.id === parentId);
@@ -189,11 +172,7 @@ export function useSubtaskDetail(node: AppNode) {
                 const parentConfig = getStatusFromConfig('complete');
                 newListTasksMap[listId][parentIndex] = {
                   ...newListTasksMap[listId][parentIndex],
-                  status: {
-                    ...newListTasksMap[listId][parentIndex].status,
-                    status: 'complete',
-                    color: parentConfig?.color || '#0f9d9f',
-                  },
+                  status: { ...newListTasksMap[listId][parentIndex].status, status: 'complete', color: parentConfig?.color || '#0f9d9f' },
                 };
               }
             }
@@ -208,19 +187,16 @@ export function useSubtaskDetail(node: AppNode) {
       await updateTask(subtaskId, { status: newStatus });
     } catch (err) {
       console.error('Failed to update subtask status:', err);
-      if (previousData) {
-        queryClient.setQueryData(queryKey, previousData);
-      }
+      if (previousData) queryClient.setQueryData(queryKey, previousData);
       queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
     } finally {
       setIsSaving(false);
     }
   };
 
-  // --- HANDLERS INTERNOS DO CHECKLIST ---
+  // --- HANDLERS DO CHECKLIST ---
   const handleAddItemLocal = () => {
     if (!newItemName.trim()) return;
-
     const defaultChecklistId = subtask.checklists?.[0]?.id || '';
     const newItem: ChecklistItemPayload = {
       id: `temp-item-${Date.now()}`,
@@ -229,7 +205,6 @@ export function useSubtaskDetail(node: AppNode) {
       checklistId: defaultChecklistId,
       isNew: true,
     };
-
     setItems((prev) => [...prev, newItem]);
     setPendingItems((prev) => [...prev, newItem]);
     setNewItemName('');
@@ -238,15 +213,10 @@ export function useSubtaskDetail(node: AppNode) {
   const handleCheckboxChange = (itemId: string, checked: boolean) => {
     setItems((prevItems) =>
       prevItems.map((item) => {
-        if (item.id === itemId) {
-          const updated = { ...item, resolved: checked };
-          setPendingItems((prevPending) => {
-            const clean = prevPending.filter((p) => p.id !== itemId);
-            return [...clean, updated];
-          });
-          return updated;
-        }
-        return item;
+        if (item.id !== itemId) return item;
+        const updated = { ...item, resolved: checked };
+        setPendingItems((prev) => [...prev.filter((p) => p.id !== itemId), updated]);
+        return updated;
       })
     );
   };
@@ -254,15 +224,10 @@ export function useSubtaskDetail(node: AppNode) {
   const handleNameChange = (itemId: string, name: string) => {
     setItems((prevItems) =>
       prevItems.map((item) => {
-        if (item.id === itemId) {
-          const updated = { ...item, name };
-          setPendingItems((prevPending) => {
-            const clean = prevPending.filter((p) => p.id !== itemId);
-            return [...clean, updated];
-          });
-          return updated;
-        }
-        return item;
+        if (item.id !== itemId) return item;
+        const updated = { ...item, name };
+        setPendingItems((prev) => [...prev.filter((p) => p.id !== itemId), updated]);
+        return updated;
       })
     );
   };
@@ -270,7 +235,6 @@ export function useSubtaskDetail(node: AppNode) {
   const handleSaveChecklist = async () => {
     setIsSavingChecklist(true);
     const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
-
     try {
       await saveChecklistMutation(subtask.taskId, pendingItems);
       setPendingItems([]);
@@ -282,80 +246,34 @@ export function useSubtaskDetail(node: AppNode) {
       setIsSavingChecklist(false);
     }
   };
-  // ==========================================
-  // CONTROLE DO TIMER VIA LOCALSTORAGE
-  // ==========================================
-  const [isTimerActive, setIsTimerActive] = useState(false);
-  const [isSavingTimer, setIsSavingTimer] = useState(false);
-  const [additionalMs, setAdditionalMs] = useState(0);
 
-  // Chave única para o localStorage para não misturar tarefas
-  const STORAGE_KEY = `timer_task_${subtask.taskId}`;
-
-  // 1. Verifica o localStorage e liga o motor do timer
-  useEffect(() => {
-    const savedTimer = localStorage.getItem(STORAGE_KEY);
-
-    if (savedTimer && isTimerActive) { // 💡 Só liga o intervalo se o botão estiver em modo "Active"
-      const { startTime } = JSON.parse(savedTimer);
-
-      const updateTimer = () => {
-        const elapsed = Date.now() - startTime;
-        setAdditionalMs(elapsed);
-      };
-
-      updateTimer(); // Atualiza instantaneamente o número na tela sem delay de 1s
-      const interval = setInterval(updateTimer, 1000);
-
-      return () => clearInterval(interval);
-    } else if (!savedTimer) {
-      // Se o timer foi desligado e apagado do localStorage, zera tudo de forma segura
-      setAdditionalMs(0);
-    }
-  }, [subtask.taskId, isTimerActive]); // 💡 Adicionamos isTimerActive aqui!
-
-  // 2. Ação de Play/Stop manipulando o localStorage e a API
+  // --- HANDLER DO TIMER ---
   const handleToggleTimer = async () => {
     if (isSavingTimer) return;
-
-    const willStop = isTimerActive;
     setIsSavingTimer(true);
-
-    // Otimistic Update na UI
-    setIsTimerActive(!willStop);
-
     try {
-      if (!willStop) {
-        // --- FLUXO DE START ---
-        const timerData = { startTime: Date.now() };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(timerData));
+      if (!isTimerActive) {
+        startTimer(subtask.taskId as string, (subtask.time_spent as number) ?? 0);
 
         await toggleTimerMutation(subtask.taskId, 'start');
-
-        // 💡 Note que NÃO invalidamos o grafo aqui! O front se vira com o localStorage.
-      } else {
-        // --- FLUXO DE STOP ---
-        await toggleTimerMutation(subtask.taskId, 'stop');
-
-        localStorage.removeItem(STORAGE_KEY);
-        setAdditionalMs(0);
-
-        // 💡 Só jogamos o cache do Grafo fora no STOP para puxar o tempo consolidado
-        const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
-        await queryClient.invalidateQueries({ queryKey });
       }
-
+      else {
+        await toggleTimerMutation(subtask.taskId, 'stop');
+        stopTimer();
+        await queryClient.invalidateQueries({
+          queryKey: ['clickup-graph', useGraphStore.getState().spaceId],
+        });
+      }
     } catch (err) {
-      console.error("Erro ao sincronizar cronômetro:", err);
-      setIsTimerActive(willStop);
-      alert('Não foi possível alterar o timer no ClickUp.');
+      // rollback
+      if (!isTimerActive) stopTimer(); else startTimer(subtask.taskId as string);
+      console.error('Erro ao sincronizar cronômetro:', err);
     } finally {
       setIsSavingTimer(false);
     }
   };
 
   return {
-    // Retornos originais
     localName,
     setLocalName,
     localStatus,
@@ -364,7 +282,6 @@ export function useSubtaskDetail(node: AppNode) {
     handleTaskKeyDown,
     handleStatusChange,
 
-    // Novos retornos de checklist
     items,
     newItemName,
     setNewItemName,
@@ -375,10 +292,10 @@ export function useSubtaskDetail(node: AppNode) {
     handleNameChange,
     handleSaveChecklist,
 
-    // Novos retornos de timer
     isTimerActive,
     isSavingTimer,
     handleToggleTimer,
     additionalMs,
+    timerBaseMs,
   };
 }
