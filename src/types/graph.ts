@@ -173,8 +173,10 @@ export interface UiSlice {
   setQuarterPickerModal: (data: Partial<UiSlice['quarterPickerModal']>) => void;
 }
 
+import { type Season } from "@/config/quarters";
+
 export interface ApiSlice {
-  createTask: (listId: string, name: string, quarter: string | null) => Promise<any>;
+  createTask: (listId: string, name: string, quarter: Season | null) => Promise<any>;
   createList: (folderId: string, name: string, quarter: string | null) => Promise<any>;
   createSubtask: (parentTaskId: string, name: string) => Promise<any>;
   updateTask: (taskId: string, updates: { name?: string; quarter?: string; status?: string; tags?: string[] }) => Promise<any>;
@@ -203,6 +205,7 @@ export interface DevSlice {
   stopTimer: () => void;
   tickTimer: () => void;
   toggleDevMode: (listId: string, tasks: any[], enable: boolean, queryClient?: any) => Promise<void>;
+  collapseToLists: () => void;
 }
 
 export type GraphStore = CoreSlice & UiSlice & ApiSlice & HierarchySlice & DevSlice;

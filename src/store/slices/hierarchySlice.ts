@@ -86,4 +86,21 @@ export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySli
       edges: state.edges.filter(e => e.source !== nodeId && e.target !== nodeId),
     }));
   },
+
+  collapseToLists: () => {
+    const nodes = get().fullNodes;
+    set({
+      fullNodes: nodes.map(node => {
+        if (node.type === 'list') {
+          // colapsa a list → getVisibleGraph esconde tasks e subtasks
+          return { ...node, data: { ...node.data, collapsed: true } } as AppNode;
+        }
+        if (node.type === 'folder' || node.type === 'space') {
+          // garante que folder e space estão expandidos
+          return { ...node, data: { ...node.data, collapsed: false } } as AppNode;
+        }
+        return node;
+      }) as AppNode[],
+    });
+  },
 });

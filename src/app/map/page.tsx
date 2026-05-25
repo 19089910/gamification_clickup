@@ -3,7 +3,6 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { useQueryClient } from '@tanstack/react-query';
 import { useClickUpData } from '@/hooks/useClickUpData';
 import { useGraphStore, Quarter } from '@/store/graphStore';
 import LoadingScreen from '@/components/ui/LoadingScreen';
@@ -36,14 +35,14 @@ function MapView() {
   const spaceName = searchParams.get('spaceName') ?? 'Space';
   const spaceColor = searchParams.get('spaceColor') ?? null;
 
-  const space = useMemo(() => ({ 
-    id: spaceId, 
-    name: spaceName, 
-    color: spaceColor 
+  const space = useMemo(() => ({
+    id: spaceId,
+    name: spaceName,
+    color: spaceColor
   }), [spaceId, spaceName, spaceColor]);
 
   const { isLoading, isError, error } = useClickUpData(space);
-  const { nodes, edges, selectedQuarter, setQuarter, setSpaceId } = useGraphStore();
+  const { nodes, edges, selectedQuarter, setQuarter, setSpaceId, collapseToLists } = useGraphStore();
 
   useEffect(() => {
     if (spaceId) {
@@ -57,7 +56,7 @@ function MapView() {
   const edgeCount = edges.length;
 
   return (
-    <div 
+    <div
       className="map-page"
       style={{ background: selectedQuarter ? SEASON_BG[selectedQuarter] : undefined, transition: 'background 0.5s ease' }}
     >
@@ -72,7 +71,23 @@ function MapView() {
         </button>
         <div className="topbar-divider" />
         <h1 className="topbar-title">{spaceName}</h1>
-        
+        <button
+          onClick={collapseToLists}
+          style={{
+            padding: '4px 10px',
+            background: '#161616',
+            color: '#f0f0f0',
+            border: '1px solid #333',
+            borderRadius: 6,
+            fontSize: 12,
+            cursor: 'pointer',
+          }}
+          title="Visualizar apenas listas"
+        >
+          View Projects
+        </button>
+
+
         <select
           value={selectedQuarter || 'SUMMER'}
           onChange={(e) => setQuarter(e.target.value as Quarter)}

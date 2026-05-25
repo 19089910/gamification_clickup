@@ -1,5 +1,5 @@
 "use client";
-
+import { type Season, SEASON_MAP } from '@/config/quarters';
 import React, { useCallback, useEffect, useRef } from "react";
 import {
   ReactFlow,
@@ -108,7 +108,12 @@ export default function GraphCanvas() {
       if (parentType === 'list') {
         // Create task immediately with active quarter
         try {
-          const newTask = await createTask(clickUpId, name, selectedQuarter);
+          const parentListNode = useGraphStore.getState().fullNodes.find(n => n.id === nodeParentId);
+          const listPrimaryQuarter = (parentListNode?.data as any)?.primaryQuarter as Season | null;
+
+          // Usa o quarter da list se existir, senão usa o selectedQuarter
+          const quarterToUse = listPrimaryQuarter ?? (selectedQuarter && selectedQuarter in SEASON_MAP ? selectedQuarter as Season : null);
+          const newTask = await createTask(clickUpId, name, quarterToUse);
 
           // Local Sync: Update cache after success
           queryClient.setQueryData(['clickup-graph', useGraphStore.getState().spaceId], (oldData: GraphApiResponse | undefined) => {
