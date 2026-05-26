@@ -1,11 +1,9 @@
 "use client";
 
 import React, { use, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import DevHeader from "@/components/dev/DevHeader";
-import IssueRow from "@/components/dev/IssueRow";
-import ProgressOverview from "@/components/dev/ProgressOverview";
 import LoadingScreen from "@/components/ui/LoadingScreen";
 import CreateMilestoneModal from "@/components/dev/CreateMilestoneModal";
 import CreateIssueModal from "@/components/dev/CreateIssueModal";
@@ -19,7 +17,6 @@ interface DevPanelData {
 /** Milestone = ClickUp task with custom_item_id: 1 OR fallback: task named like "sprint*" / "milestone*" */
 function isMilestone(task: ClickUpTask): boolean {
   if (task.custom_item_id === 1) return true;
-  // Fallback heuristic: task name starts with sprint/milestone/ms (case-insensitive)
   return /^(sprint|milestone|ms|phase)\s/i.test(task.name);
 }
 
@@ -46,26 +43,22 @@ function getIssuesForMilestone(
   return issues;
 }
 
-/** Get all Issues (subtasks across all Epics) that are NOT linked to any Milestone */
-function getBacklogIssues(
-  epics: ClickUpTask[],
-  milestoneIds: Set<string>
-): ClickUpTask[] {
-  const all: ClickUpTask[] = [];
-  for (const epic of epics) {
-    const subtasks = epic.subtasks ?? [];
-    for (const sub of subtasks) {
-      const deps = sub.dependencies ?? [];
-      const linked = deps.some(
-        (d) => milestoneIds.has(d.task_id) || milestoneIds.has(d.depends_on)
-      );
-      if (!linked) all.push(sub);
-    }
-  }
-  return all;
+/** Helper to find which Milestone an Issue is linked to */
+function getLinkedMilestone(
+  issue: ClickUpTask,
+  milestones: ClickUpTask[]
+): ClickUpTask | null {
+  const deps = issue.dependencies ?? [];
+  const milestoneIds = new Set(milestones.map((m) => m.id));
+  const foundDep = deps.find(
+    (d) => milestoneIds.has(d.task_id) || milestoneIds.has(d.depends_on)
+  );
+  if (!foundDep) return null;
+  const msId = milestoneIds.has(foundDep.task_id) ? foundDep.task_id : foundDep.depends_on;
+  return milestones.find((m) => m.id === msId) || null;
 }
 
-type View = "milestones" | "backlog";
+type View = "linker" | "timeline";
 
 export default function MilestoneManagerPage({
   params,
@@ -73,10 +66,16 @@ export default function MilestoneManagerPage({
   params: Promise<{ listId: string }>;
 }) {
   const { listId } = use(params);
-  const [view, setView] = useState<View>("milestones");
+  const queryClient = useQueryClient();
+  const [view, setView] = useState<View>("linker");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showIssueModal, setShowIssueModal] = useState<{ open: boolean; milestoneId?: string }>({ open: false });
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedEpics, setExpandedEpics] = useState<Record<string, boolean>>({});
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
+
+  // Fetch Panel Data
   const { data, isLoading, isError } = useQuery<DevPanelData>({
     queryKey: ["dev-panel", listId],
     queryFn: async () => {
@@ -87,29 +86,86 @@ export default function MilestoneManagerPage({
     staleTime: 30_000,
   });
 
-  const { epics, milestones, milestoneIds, backlog } = useMemo(() => {
+  const { epics, milestones } = useMemo(() => {
     if (!data?.tasks) {
-      return { epics: [], milestones: [], milestoneIds: new Set<string>(), backlog: [] };
+      return { epics: [], milestones: [] };
     }
-
     const epics = data.tasks.filter(isEpic);
     const milestones = data.tasks.filter(isMilestone);
-    const milestoneIds = new Set(milestones.map((m) => m.id));
-    const backlog = getBacklogIssues(epics, milestoneIds);
-
-    return { epics, milestones, milestoneIds, backlog };
+    return { epics, milestones };
   }, [data]);
 
-  const totalIssues = epics.reduce(
-    (acc, e) => acc + (e.subtasks?.length ?? 0),
-    0
-  );
+  // Mutations
+  const addDependencyMutation = useMutation({
+    mutationFn: async ({ taskId, dependsOnId }: { taskId: string; dependsOnId: string }) => {
+      const res = await fetch(`/api/clickup/tasks/${taskId}/dependency`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          depends_on: dependsOnId,
+          dependency_type: "waiting_on",
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to add dependency");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dev-panel", listId] });
+    },
+  });
+
+  const removeDependencyMutation = useMutation({
+    mutationFn: async ({ taskId, dependsOnId }: { taskId: string; dependsOnId: string }) => {
+      const res = await fetch(
+        `/api/clickup/tasks/${taskId}/dependency?depends_on=${dependsOnId}&dependency_type=waiting_on`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!res.ok) throw new Error("Failed to remove dependency");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dev-panel", listId] });
+    },
+  });
+
+  const activeMilestoneId = selectedMilestoneId || (milestones[0]?.id ?? null);
+  const isMutating = addDependencyMutation.isPending || removeDependencyMutation.isPending;
+
+  // Filtered Epics & Issues on the left
+  const epicsWithFilteredIssues = useMemo(() => {
+    return epics.map((epic) => {
+      const issues = epic.subtasks ?? [];
+      const filtered = searchQuery
+        ? issues.filter((i) => i.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        : issues;
+      return { ...epic, filteredIssues: filtered };
+    }).filter((epic) => {
+      if (searchQuery) return epic.filteredIssues.length > 0;
+      return true;
+    });
+  }, [epics, searchQuery]);
+
+  // Stats
+  const totalIssues = epics.reduce((acc, e) => acc + (e.subtasks?.length ?? 0), 0);
   const closedIssues = epics.reduce(
-    (acc, e) =>
-      acc + (e.subtasks?.filter((s) => s.status.type === "closed").length ?? 0),
+    (acc, e) => acc + (e.subtasks?.filter((s) => s.status.type === "closed").length ?? 0),
     0
   );
   const progress = totalIssues > 0 ? (closedIssues / totalIssues) * 100 : 0;
+
+  // Calculate total linked issues in the carts
+  const totalLinked = useMemo(() => {
+    return milestones.reduce((acc, ms) => acc + getIssuesForMilestone(epics, ms.id).length, 0);
+  }, [milestones, epics]);
+
+  const toggleEpic = (epicId: string) => {
+    setExpandedEpics((prev) => ({
+      ...prev,
+      [epicId]: prev[epicId] === false ? true : false,
+    }));
+  };
 
   if (isLoading) return <LoadingScreen />;
   if (isError)
@@ -169,516 +225,953 @@ export default function MilestoneManagerPage({
         <nav className="view-tabs">
           <div className="tabs-left">
             <button
-              className={`vtab ${view === "milestones" ? "active" : ""}`}
-              onClick={() => setView("milestones")}
+              className={`vtab ${view === "linker" ? "active" : ""}`}
+              onClick={() => setView("linker")}
             >
-              Milestones
-              <span className="vtab-badge">{milestones.length}</span>
+              <i className="ti ti-shopping-cart" style={{ fontSize: "14px" }}></i>
+              Vincular (Cart)
             </button>
             <button
-              className={`vtab ${view === "backlog" ? "active" : ""}`}
-              onClick={() => setView("backlog")}
+              className={`vtab ${view === "timeline" ? "active" : ""}`}
+              onClick={() => setView("timeline")}
             >
-              Backlog
-              <span className="vtab-badge">{backlog.length}</span>
+              <i className="ti ti-map-2" style={{ fontSize: "14px" }}></i>
+              Roadmap (Timeline)
             </button>
           </div>
-          <button
-            className="new-ms-btn"
-            onClick={() => setShowCreateModal(true)}
-          >
-            ⊗ New Milestone
-          </button>
+          {view === "linker" && (
+            <button
+              className="new-ms-btn"
+              onClick={() => setShowCreateModal(true)}
+            >
+              ⊗ New Milestone
+            </button>
+          )}
         </nav>
 
-        {/* ── Main content + sidebar ── */}
-        <div className="main-layout">
-          <section className="main-content">
-            {view === "milestones" && (
-              <div className="milestone-list">
-                {milestones.length === 0 ? (
-                  <div className="empty-state">
-                    <h3>No Milestones found</h3>
-                    <p>
-                      Create a Milestone here, or enable the Milestone flag (⊗) in ClickUp.
-                    </p>
-                    <button
-                      className="empty-create-btn"
-                      onClick={() => setShowCreateModal(true)}
-                    >
-                      ⊗ Create first Milestone
-                    </button>
-                  </div>
+        {/* ── View Content ── */}
+        {view === "linker" ? (
+          <div className="root-linker">
+            
+            {/* LEFT Pane: Issues por Epic */}
+            <div className="left-col">
+              <div className="left-header">
+                <i className="ti ti-layout-list" style={{ fontSize: "15px", color: "var(--text-2)" }} aria-hidden="true"></i>
+                <span className="left-title">Issues por Epic</span>
+                
+                <div className="search-wrap">
+                  <i className="ti ti-search search-icon" aria-hidden="true"></i>
+                  <input
+                    className="search-input"
+                    type="text"
+                    placeholder="Buscar issue..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  className="quick-add-btn"
+                  title="Create new issue"
+                  onClick={() => setShowIssueModal({ open: true })}
+                >
+                  + Issue
+                </button>
+              </div>
+
+              <div className="left-body">
+                {epicsWithFilteredIssues.length === 0 ? (
+                  <div className="no-epics">Nenhum Epic ou Issue encontrado.</div>
                 ) : (
-                  milestones.map((ms) => {
-                    const issues = getIssuesForMilestone(epics, ms.id);
+                  epicsWithFilteredIssues.map((epic) => {
+                    const isExpanded = expandedEpics[epic.id] !== false;
                     return (
-                      <MilestoneSection
-                        key={ms.id}
-                        milestone={ms}
-                        issues={issues}
-                        listId={listId}
-                        onAddIssue={() => setShowIssueModal({ open: true, milestoneId: ms.id })}
-                      />
+                      <div key={epic.id} className="epic-section">
+                        <div className="epic-header" onClick={() => toggleEpic(epic.id)}>
+                          <div className="epic-dot" style={{ background: epic.status.color }} />
+                          <span className="epic-label">{epic.name}</span>
+                          <span className="epic-count">{epic.filteredIssues.length} issues</span>
+                          <i className={`ti ti-chevron-down epic-chevron ${isExpanded ? "open" : ""}`} aria-hidden="true"></i>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="issues-list">
+                            {epic.filteredIssues.length === 0 ? (
+                              <div className="empty-epic-issues">Nenhuma issue.</div>
+                            ) : (
+                              epic.filteredIssues.map((issue) => {
+                                const linkedMs = getLinkedMilestone(issue, milestones);
+                                const inCart = !!linkedMs;
+
+                                return (
+                                  <div
+                                    key={issue.id}
+                                    className={`issue-card ${inCart ? "in-cart" : ""}`}
+                                    onClick={() => {
+                                      if (!inCart && activeMilestoneId && !isMutating) {
+                                        addDependencyMutation.mutate({
+                                          taskId: issue.id,
+                                          dependsOnId: activeMilestoneId,
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <div
+                                      className="issue-status"
+                                      style={{ background: issue.status?.color || "var(--text-3)" }}
+                                    />
+                                    <span className="issue-name">{issue.name}</span>
+                                    
+                                    {inCart ? (
+                                      <span className="in-cart-badge">
+                                        <i className="ti ti-check" aria-hidden="true" style={{ fontSize: "11px" }}></i>
+                                        {linkedMs.name}
+                                      </span>
+                                    ) : (
+                                      <button
+                                        className="add-btn"
+                                        aria-label="Adicionar à Milestone ativa"
+                                        disabled={isMutating}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (activeMilestoneId) {
+                                            addDependencyMutation.mutate({
+                                              taskId: issue.id,
+                                              dependsOnId: activeMilestoneId,
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        +
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        )}
+                      </div>
                     );
                   })
                 )}
-
-                {/* Epics overview at the bottom */}
-                <div className="epics-section">
-                  <h3 className="section-title">Epics ({epics.length})</h3>
-                  <div className="epics-grid">
-                    {epics.map((epic) => (
-                      <EpicCard key={epic.id} epic={epic} />
-                    ))}
-                  </div>
-                </div>
               </div>
-            )}
+            </div>
 
-            {view === "backlog" && (
-              <div className="backlog-section">
-                <div className="backlog-header">
-                  <p className="backlog-hint">
-                    Issues not yet assigned to any Milestone.
-                  </p>
-                  <button className="new-issue-btn" onClick={() => setShowIssueModal({ open: true })}>
-                    + New Issue
-                  </button>
-                </div>
-                {backlog.length === 0 ? (
-                  <div className="empty-state">
-                    <h3>All issues assigned</h3>
-                    <p>Every issue belongs to a Milestone. 🎉</p>
+            {/* RIGHT Pane: Milestone Carts */}
+            <div className="right-col">
+              <div className="right-header">
+                <i className="ti ti-shopping-cart" style={{ fontSize: "15px", color: "var(--text-2)" }} aria-hidden="true"></i>
+                <span className="right-title">Milestones</span>
+                <span className="cart-count-badge">{totalLinked} issues vinculadas</span>
+              </div>
+
+              <div className="right-body">
+                {milestones.length === 0 ? (
+                  <div className="empty-state-ms">
+                    <h3>Nenhuma Milestone cadastrada</h3>
+                    <p>Crie uma Milestone clicando no botão "+ New Milestone" no topo.</p>
                   </div>
                 ) : (
-                  <div className="issue-list-box">
-                    {backlog.map((issue) => (
-                      <IssueRow key={issue.id} issue={issue} />
-                    ))}
-                  </div>
+                  milestones.map((ms) => {
+                    const isActive = activeMilestoneId === ms.id;
+                    const msIssues = getIssuesForMilestone(epics, ms.id);
+
+                    return (
+                      <div key={ms.id} className="milestone-cart">
+                        <div
+                          className={`ms-cart-header ${isActive ? "active" : ""}`}
+                          onClick={() => setSelectedMilestoneId(ms.id)}
+                        >
+                          <i className="ti ti-circle-dot ms-icon" aria-hidden="true"></i>
+                          <span className="ms-cart-name">{ms.name}</span>
+                          
+                          {ms.due_date && (
+                            <span className="ms-due">
+                              Due {new Date(parseInt(ms.due_date)).toLocaleDateString("pt-BR", { month: "short", day: "numeric" })}
+                            </span>
+                          )}
+                          
+                          <span className="ms-issue-count">{msIssues.length} issues</span>
+                          
+                          <button
+                            className="ms-add-btn-quick"
+                            title="Criar nova issue nesta Milestone"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowIssueModal({ open: true, milestoneId: ms.id });
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <div className="ms-cart-body">
+                          {msIssues.length === 0 ? (
+                            <div className="ms-empty">
+                              {isActive
+                                ? "Selecione uma Issue à esquerda para vincular a esta Milestone"
+                                : "Nenhuma Issue vinculada"}
+                            </div>
+                          ) : (
+                            msIssues.map((issue) => {
+                              const parentEpic = epics.find((e) =>
+                                e.subtasks?.some((s) => s.id === issue.id)
+                              );
+                              return (
+                                <div key={issue.id} className="cart-issue">
+                                  <div
+                                    className="cart-issue-dot"
+                                    style={{ background: issue.status?.color || "var(--text-3)" }}
+                                  />
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div className="cart-issue-name">{issue.name}</div>
+                                    {parentEpic && (
+                                      <div className="cart-issue-epic">{parentEpic.name}</div>
+                                    )}
+                                  </div>
+                                  <button
+                                    className="remove-btn"
+                                    aria-label="Remover vínculo"
+                                    disabled={isMutating}
+                                    onClick={() => {
+                                      removeDependencyMutation.mutate({
+                                        taskId: issue.id,
+                                        dependsOnId: ms.id,
+                                      });
+                                    }}
+                                  >
+                                    <i className="ti ti-x" aria-hidden="true" style={{ fontSize: "11px" }}></i>
+                                  </button>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
-            )}
-          </section>
 
-          <aside className="right-sidebar">
-            <ProgressOverview
-              openCount={totalIssues - closedIssues}
-              closedCount={closedIssues}
-              totalCount={totalIssues}
-              progress={progress}
-            />
-          </aside>
-        </div>
+              {/* FOOTER */}
+              <div className="right-footer">
+                <span className="footer-summary">
+                  {totalLinked === 0
+                    ? "Selecione issues e vincule às Milestones"
+                    : `${totalLinked} issue${totalLinked !== 1 ? "s" : ""} pronta${totalLinked !== 1 ? "s" : ""} para o Roadmap`}
+                </span>
+                <button
+                  className="btn-roadmap"
+                  disabled={totalLinked === 0}
+                  onClick={() => setView("timeline")}
+                >
+                  <i className="ti ti-map-2" aria-hidden="true"></i>
+                  Ver Roadmap ↗
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        ) : (
+          /* TIMELINE VIEW PLACEHOLDER */
+          <div className="timeline-placeholder-card">
+            <i className="ti ti-map-2 placeholder-icon" aria-hidden="true"></i>
+            <h2>Visual Roadmap Timeline</h2>
+            <p>
+              Esta tela renderizará o Gantt interativo baseado nos vínculos entre as
+              milestones e as issues configuradas no painel.
+            </p>
+            <div className="timeline-sketch">
+              <div className="sketch-ruler">
+                <span>Week 1</span>
+                <span>Week 2</span>
+                <span>Week 3</span>
+                <span>Week 4</span>
+              </div>
+              <div className="sketch-swimlane">
+                <div className="sketch-epic">[Epic] Gerenciador Dev</div>
+                <div className="sketch-block" style={{ width: "35%", marginLeft: "5%" }}>Sprint 1</div>
+                <div className="sketch-block" style={{ width: "25%", marginLeft: "45%" }}>Sprint 2</div>
+              </div>
+              <div className="sketch-swimlane">
+                <div className="sketch-epic">[Epic] Game Experience</div>
+                <div className="sketch-block" style={{ width: "50%", marginLeft: "15%" }}>Sprint 2</div>
+              </div>
+            </div>
+            <button className="back-to-linker-btn" onClick={() => setView("linker")}>
+              ← Voltar para Vincular
+            </button>
+          </div>
+        )}
       </div>
 
       <style jsx>{`
         .manager-page {
-          background: #f4f4f6;
+          background: var(--bg);
           min-height: 100vh;
           display: flex;
           flex-direction: column;
         }
         .error-page {
-          background: #f4f4f6;
+          background: var(--bg);
           min-height: 100vh;
           display: flex;
           flex-direction: column;
           align-items: center;
           padding-top: 80px;
-          color: #888;
+          color: var(--text-3);
         }
         .page-body {
           max-width: 1200px;
           margin: 0 auto;
           width: 100%;
-          padding: 28px 24px;
+          padding: 24px;
           display: flex;
           flex-direction: column;
-          gap: 0;
+          gap: 20px;
         }
+
         /* Project header */
         .project-header {
-          background: #fff;
-          border: 1px solid #dcdcde;
-          border-radius: 8px 8px 0 0;
-          padding: 24px 28px;
+          background: var(--surface-1);
+          border: 1px solid var(--border-2);
+          border-radius: var(--r-lg);
+          padding: 20px 24px;
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
+          align-items: center;
           gap: 32px;
         }
         .project-label {
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: #888;
+          letter-spacing: 0.1em;
+          color: var(--text-3);
           display: block;
           margin-bottom: 4px;
         }
         .project-name {
-          font-size: 24px;
+          font-size: 22px;
           font-weight: 700;
-          color: #1f1e24;
-          margin: 0 0 8px 0;
+          color: var(--text-1);
+          margin: 0 0 6px 0;
           letter-spacing: -0.02em;
         }
         .project-stats {
           display: flex;
           align-items: center;
           gap: 6px;
-          font-size: 13px;
-          color: #666;
+          font-size: 12px;
+          color: var(--text-2);
         }
-        .dot { color: #ccc; }
-        .project-progress { width: 240px; flex-shrink: 0; }
+        .dot {
+          color: var(--border-3);
+        }
+        .project-progress {
+          width: 240px;
+          flex-shrink: 0;
+        }
         .prog-label-row {
           display: flex;
           justify-content: space-between;
-          font-size: 12px;
-          color: #666;
-          margin-bottom: 8px;
+          font-size: 11px;
+          color: var(--text-2);
+          margin-bottom: 6px;
         }
-        .prog-pct { color: #1f75cb; font-weight: 700; }
-        .prog-track { height: 8px; background: #eaeaea; border-radius: 4px; overflow: hidden; }
-        .prog-fill { height: 100%; background: linear-gradient(90deg, #1f75cb, #5b9bd5); transition: width 0.4s; }
+        .prog-pct {
+          color: var(--purple-lg);
+          font-weight: 700;
+        }
+        .prog-track {
+          height: 6px;
+          background: var(--border-2);
+          border-radius: 3px;
+          overflow: hidden;
+        }
+        .prog-fill {
+          height: 100%;
+          background: linear-gradient(90deg, var(--purple), var(--purple-lg));
+          transition: width 0.4s;
+        }
+
         /* Tabs */
         .view-tabs {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          background: #fff;
-          border-left: 1px solid #dcdcde;
-          border-right: 1px solid #dcdcde;
-          border-bottom: 1px solid #dcdcde;
-          padding: 0 16px 0 20px;
+          border-bottom: 1px solid var(--border-2);
+          padding: 0 4px;
         }
-        .tabs-left { display: flex; align-items: center; }
+        .tabs-left {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
         .vtab {
           background: none;
           border: none;
           border-bottom: 2px solid transparent;
-          padding: 11px 4px;
-          font-size: 14px;
+          padding: 10px 16px;
+          font-size: 13px;
           font-weight: 500;
-          color: #666;
+          color: var(--text-2);
           cursor: pointer;
-          margin-right: 20px;
           display: flex;
           align-items: center;
-          gap: 6px;
-          transition: color 0.15s, border-color 0.15s;
+          gap: 8px;
+          transition: all 0.15s;
         }
-        .vtab:hover { color: #1f1e24; }
-        .vtab.active { color: #1f75cb; border-bottom-color: #1f75cb; font-weight: 600; }
-        .vtab-badge {
-          background: #eaeaea;
-          color: #555;
-          font-size: 11px;
+        .vtab:hover {
+          color: var(--text-1);
+        }
+        .vtab.active {
+          color: var(--purple-lg);
+          border-bottom-color: var(--purple-lg);
           font-weight: 600;
-          padding: 0 6px;
-          border-radius: 8px;
         }
-        /* Layout */
-        .main-layout {
-          display: flex;
-          gap: 20px;
-          align-items: flex-start;
-          margin-top: 20px;
-        }
-        .main-content { flex: 1; min-width: 0; }
-        .right-sidebar { width: 260px; flex-shrink: 0; }
-        /* Content areas */
-        .milestone-list { display: flex; flex-direction: column; gap: 16px; }
-        .epics-section { margin-top: 8px; }
-        .section-title {
-          font-size: 13px;
-          font-weight: 700;
-          color: #1f1e24;
-          margin: 0 0 12px 0;
-          padding-bottom: 8px;
-          border-bottom: 1px solid #eaeaea;
-        }
-        .epics-grid { display: flex; flex-direction: column; gap: 8px; }
-        .backlog-section { display: flex; flex-direction: column; gap: 16px; }
-        .backlog-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 4px;
-        }
-        .backlog-hint { font-size: 14px; color: #666; margin: 0; }
-        .new-issue-btn {
-          background: #fff;
-          border: 1px solid #dcdcde;
-          color: #6e49cb;
+        .new-ms-btn {
+          background: rgba(124, 58, 237, 0.15);
+          color: var(--purple-lg);
+          border: 1px solid rgba(124, 58, 237, 0.3);
+          border-radius: var(--r-sm);
           padding: 6px 12px;
-          border-radius: 6px;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.15s;
         }
-        .new-issue-btn:hover {
-          border-color: #6e49cb;
-          background: #f8f7ff;
+        .new-ms-btn:hover {
+          background: rgba(124, 58, 237, 0.25);
+          border-color: var(--purple);
+          box-shadow: 0 0 8px rgba(124, 58, 237, 0.2);
         }
-        .issue-list-box {
-          background: #fff;
-          border: 1px solid #dcdcde;
-          border-radius: 6px;
+
+        /* Root Linker */
+        .root-linker {
+          display: flex;
+          height: 620px;
+          border: 1px solid var(--border-2);
+          border-radius: var(--r-lg);
           overflow: hidden;
+          background: var(--surface-1);
         }
-        .empty-state {
-          background: #fff;
-          border: 1px solid #dcdcde;
-          border-radius: 6px;
-          padding: 52px 32px;
+
+        /* LEFT — corredores */
+        .left-col {
+          width: 440px;
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          border-right: 1px solid var(--border-2);
+          background: var(--surface-1);
+        }
+        .left-header {
+          padding: 12px 16px;
+          border-bottom: 1px solid var(--border-2);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .left-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-1);
+          flex: 1;
+        }
+        .search-wrap {
+          position: relative;
+        }
+        .search-input {
+          font-size: 12px;
+          padding: 5px 10px 5px 28px;
+          border: 1px solid var(--border-2);
+          border-radius: var(--r-sm);
+          background: var(--surface-2);
+          color: var(--text-1);
+          outline: none;
+          width: 140px;
+          transition: all 0.15s;
+        }
+        .search-input:focus {
+          border-color: var(--purple);
+          width: 160px;
+        }
+        .search-icon {
+          position: absolute;
+          left: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 13px;
+          color: var(--text-3);
+          pointer-events: none;
+        }
+        .quick-add-btn {
+          font-size: 11px;
+          background: var(--surface-3);
+          color: var(--text-1);
+          border: 1px solid var(--border-3);
+          padding: 5px 10px;
+          border-radius: var(--r-sm);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .quick-add-btn:hover {
+          background: rgba(124, 58, 237, 0.1);
+          border-color: var(--purple);
+          color: var(--purple-lg);
+        }
+        .left-body {
+          flex: 1;
+          overflow-y: auto;
+        }
+        .no-epics {
+          padding: 32px;
           text-align: center;
-          color: #888;
+          font-size: 13px;
+          color: var(--text-3);
+        }
+
+        /* Epic section */
+        .epic-section {
+          border-bottom: 1px solid var(--border-2);
+        }
+        .epic-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 16px;
+          cursor: pointer;
+          background: var(--surface-2);
+          transition: background 0.15s;
+        }
+        .epic-header:hover {
+          background: var(--surface-3);
+        }
+        .epic-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        .epic-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-1);
+          flex: 1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .epic-count {
+          font-size: 11px;
+          color: var(--text-3);
+        }
+        .epic-chevron {
+          font-size: 11px;
+          color: var(--text-3);
+          transition: transform 0.15s;
+        }
+        .epic-chevron.open {
+          transform: rotate(180deg);
+        }
+        .issues-list {
+          display: flex;
+          flex-direction: column;
+        }
+        .empty-epic-issues {
+          padding: 12px 16px 12px 32px;
+          font-size: 12px;
+          color: var(--text-3);
+          font-style: italic;
+        }
+
+        /* Issue card — corredor */
+        .issue-card {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 9px 16px 9px 32px;
+          cursor: pointer;
+          border-bottom: 1px solid var(--border-2);
+          transition: background 0.12s;
+          position: relative;
+        }
+        .issue-card:last-child {
+          border-bottom: none;
+        }
+        .issue-card:hover {
+          background: var(--surface-2);
+        }
+        .issue-card.in-cart {
+          background: rgba(124, 58, 237, 0.05);
+          cursor: default;
+        }
+        .issue-status {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        .issue-name {
+          font-size: 12px;
+          color: var(--text-1);
+          flex: 1;
+          line-height: 1.4;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .issue-card.in-cart .issue-name {
+          color: var(--text-3);
+          text-decoration: line-through;
+          opacity: 0.6;
+        }
+        .add-btn {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          border: 1px solid var(--border-3);
+          background: var(--surface-1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          color: var(--text-2);
+          flex-shrink: 0;
+          transition: all 0.12s;
+          padding: 0;
+          line-height: 1;
+        }
+        .issue-card:not(.in-cart):hover .add-btn {
+          background: rgba(124, 58, 237, 0.15);
+          border-color: var(--purple-lg);
+          color: var(--purple-lg);
+          transform: scale(1.1);
+        }
+        .in-cart-badge {
+          font-size: 10px;
+          color: var(--purple-lg);
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          flex-shrink: 0;
+          background: rgba(124, 58, 237, 0.15);
+          padding: 2px 8px;
+          border-radius: 20px;
+          font-weight: 500;
+        }
+
+        /* RIGHT — carrinho (Milestones) */
+        .right-col {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          background: var(--surface-1);
+        }
+        .right-header {
+          padding: 12px 16px;
+          border-bottom: 1px solid var(--border-2);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .right-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-1);
+          flex: 1;
+        }
+        .cart-count-badge {
+          font-size: 11px;
+          background: rgba(124, 58, 237, 0.15);
+          color: var(--purple-lg);
+          padding: 2px 8px;
+          border-radius: 20px;
+          font-weight: 500;
+        }
+        .right-body {
+          flex: 1;
+          overflow-y: auto;
+          padding: 12px;
+        }
+        .empty-state-ms {
+          padding: 48px;
+          text-align: center;
+          color: var(--text-3);
+        }
+        .empty-state-ms h3 {
+          color: var(--text-1);
+          font-size: 15px;
+          margin-bottom: 6px;
+        }
+        .empty-state-ms p {
+          font-size: 12px;
+        }
+        .milestone-cart {
+          border: 1px solid var(--border-2);
+          border-radius: var(--r-md);
+          margin-bottom: 10px;
+          overflow: hidden;
+          background: var(--surface-1);
+        }
+        .ms-cart-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 14px;
+          background: var(--surface-2);
+          cursor: pointer;
+          transition: background 0.15s;
+          border-left: 3px solid transparent;
+        }
+        .ms-cart-header:hover {
+          background: var(--surface-3);
+        }
+        .ms-cart-header.active {
+          border-left-color: var(--purple);
+          background: rgba(124, 58, 237, 0.05);
+        }
+        .ms-icon {
+          font-size: 14px;
+          color: var(--purple-lg);
+        }
+        .ms-cart-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-1);
+          flex: 1;
+        }
+        .ms-due {
+          font-size: 11px;
+          color: var(--text-3);
+          background: var(--surface-3);
+          padding: 2px 7px;
+          border-radius: 20px;
+        }
+        .ms-issue-count {
+          font-size: 11px;
+          color: var(--text-3);
+        }
+        .ms-add-btn-quick {
+          width: 18px;
+          height: 18px;
+          border-radius: 4px;
+          border: 1px solid var(--border-3);
+          background: var(--surface-1);
+          color: var(--text-2);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.15s;
+          padding: 0;
+        }
+        .ms-add-btn-quick:hover {
+          border-color: var(--purple-lg);
+          color: var(--purple-lg);
+          background: rgba(124, 58, 237, 0.15);
+        }
+        .ms-cart-body {
+          padding: 8px;
+          background: var(--surface-1);
+        }
+        .ms-empty {
+          padding: 12px;
+          text-align: center;
+          font-size: 12px;
+          color: var(--text-3);
+          border: 1px dashed var(--border-3);
+          border-radius: var(--r-sm);
+        }
+        .cart-issue {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 7px 10px;
+          border-radius: var(--r-sm);
+          background: var(--surface-2);
+          border: 1px solid var(--border-2);
+          margin-bottom: 6px;
+          transition: border-color 0.15s;
+        }
+        .cart-issue:last-child {
+          margin-bottom: 0;
+        }
+        .cart-issue:hover {
+          border-color: var(--border-3);
+        }
+        .cart-issue-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        .cart-issue-name {
+          font-size: 12px;
+          color: var(--text-1);
+          font-weight: 500;
+        }
+        .cart-issue-epic {
+          font-size: 10px;
+          color: var(--text-3);
+          margin-top: 1px;
+        }
+        .remove-btn {
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          border: none;
+          background: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          color: var(--text-3);
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: all 0.12s;
+          padding: 0;
+        }
+        .remove-btn:hover {
+          background: rgba(239, 68, 68, 0.15);
+          color: #ef4444;
+        }
+
+        /* Footer */
+        .right-footer {
+          padding: 12px 16px;
+          border-top: 1px solid var(--border-2);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: var(--surface-1);
+        }
+        .footer-summary {
+          font-size: 12px;
+          color: var(--text-2);
+        }
+        .btn-roadmap {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: var(--purple);
+          color: #fff;
+          border: none;
+          border-radius: var(--r-sm);
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+        .btn-roadmap:hover:not(:disabled) {
+          background: var(--purple-lg);
+        }
+        .btn-roadmap:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+
+        /* Timeline Placeholder styles */
+        .timeline-placeholder-card {
+          background: var(--surface-1);
+          border: 1px solid var(--border-2);
+          border-radius: var(--r-lg);
+          padding: 40px;
+          text-align: center;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 8px;
-        }
-        .empty-state h3 { color: #1f1e24; margin-bottom: 0; }
-        .empty-state p { font-size: 13px; margin: 0; }
-        .empty-create-btn {
-          margin-top: 12px;
-          background: #6e49cb;
-          color: #fff;
-          border: none;
-          border-radius: 6px;
-          padding: 9px 18px;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background 0.15s, box-shadow 0.15s;
-        }
-        .empty-create-btn:hover {
-          background: #5a3aab;
-          box-shadow: 0 2px 8px rgba(110, 73, 203, 0.3);
-        }
-        .new-ms-btn {
-          background: #6e49cb;
-          color: #fff;
-          border: none;
-          border-radius: 6px;
-          padding: 7px 14px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: background 0.15s, box-shadow 0.15s;
-        }
-        .new-ms-btn:hover {
-          background: #5a3aab;
-          box-shadow: 0 2px 8px rgba(110, 73, 203, 0.25);
-        }
-      `}</style>
-    </div>
-  );
-}
-
-/* ── Milestone Section ──────────────────────────────────────────────── */
-
-function MilestoneSection({
-  milestone,
-  issues,
-  listId,
-  onAddIssue,
-}: {
-  milestone: ClickUpTask;
-  issues: ClickUpTask[];
-  listId: string;
-  onAddIssue: () => void;
-}) {
-  const [expanded, setExpanded] = useState(true);
-  const closed = issues.filter((i) => i.status.type === "closed").length;
-  const progress = issues.length > 0 ? (closed / issues.length) * 100 : 0;
-
-  return (
-    <div className="ms-section">
-      <header className="ms-header" onClick={() => setExpanded(!expanded)}>
-        <div className="ms-left">
-          <span className="ms-chevron">{expanded ? "▼" : "▶"}</span>
-          <span className="ms-icon">⊗</span>
-          <span className="ms-name">{milestone.name}</span>
-          {milestone.due_date && (
-            <span className="ms-due">
-              Due {new Date(parseInt(milestone.due_date)).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-            </span>
-          )}
-        </div>
-        <div className="ms-right">
-          <button 
-            className="ms-add-btn" 
-            onClick={(e) => { e.stopPropagation(); onAddIssue(); }}
-            title="Add issue to this milestone"
-          >
-            +
-          </button>
-          <span className="ms-count">{closed}/{issues.length} issues</span>
-          <div className="ms-track">
-            <div className="ms-fill" style={{ width: `${progress}%` }} />
-          </div>
-          <span className="ms-pct">{Math.round(progress)}%</span>
-        </div>
-      </header>
-
-      {expanded && (
-        <div className="ms-body">
-          {issues.length === 0 ? (
-            <p className="ms-empty">
-              No Issues linked to this Milestone yet. Link Issues via
-              ClickUp&apos;s dependency feature (waiting on this milestone).
-            </p>
-          ) : (
-            <div className="ms-issues">
-              {issues.map((issue) => (
-                <IssueRow key={issue.id} issue={issue} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <style jsx>{`
-        .ms-section {
-          background: #fff;
-          border: 1px solid #dcdcde;
-          border-radius: 6px;
-          overflow: hidden;
-        }
-        .ms-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 14px 20px;
-          cursor: pointer;
-          background: #fafafa;
-          border-bottom: 1px solid transparent;
-          transition: background 0.15s;
           gap: 16px;
         }
-        .ms-header:hover { background: #f4f4f6; }
-        .ms-left {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          min-width: 0;
+        .placeholder-icon {
+          font-size: 48px;
+          color: var(--purple-lg);
         }
-        .ms-chevron { font-size: 9px; color: #aaa; }
-        .ms-icon { font-size: 15px; color: #6e49cb; }
-        .ms-name { font-size: 15px; font-weight: 600; color: #1f1e24; }
-        .ms-due {
+        .timeline-placeholder-card h2 {
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--text-1);
+          margin: 0;
+        }
+        .timeline-placeholder-card p {
+          font-size: 14px;
+          color: var(--text-2);
+          max-width: 480px;
+          line-height: 1.6;
+          margin: 0;
+        }
+        .timeline-sketch {
+          width: 100%;
+          max-width: 600px;
+          background: var(--surface-2);
+          border: 1px solid var(--border-3);
+          border-radius: var(--r-md);
+          padding: 20px;
+          margin-top: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .sketch-ruler {
+          display: flex;
+          justify-content: space-between;
+          border-bottom: 1px solid var(--border-3);
+          padding-bottom: 8px;
           font-size: 11px;
-          color: #888;
-          background: #f0f0f2;
-          padding: 1px 7px;
-          border-radius: 10px;
+          color: var(--text-3);
+          font-weight: 600;
+          text-transform: uppercase;
         }
-        .ms-right {
+        .sketch-swimlane {
           display: flex;
           align-items: center;
-          gap: 10px;
-          flex-shrink: 0;
+          height: 36px;
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: var(--r-sm);
+          position: relative;
         }
-        .ms-count { font-size: 12px; color: #888; white-space: nowrap; }
-        .ms-add-btn {
-          background: #fff;
-          border: 1px solid #dcdcde;
-          color: #6e49cb;
-          width: 24px;
+        .sketch-epic {
+          position: absolute;
+          left: 10px;
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--text-2);
+          z-index: 5;
+        }
+        .sketch-block {
           height: 24px;
+          background: rgba(124, 58, 237, 0.15);
+          border: 1px solid var(--purple-lg);
           border-radius: 4px;
           display: flex;
           align-items: center;
           justify-content: center;
+          font-size: 10px;
+          font-weight: 700;
+          color: var(--purple-lg);
+        }
+        .back-to-linker-btn {
+          margin-top: 10px;
+          background: var(--surface-3);
+          color: var(--text-1);
+          border: 1px solid var(--border-3);
+          padding: 8px 16px;
+          border-radius: var(--r-sm);
+          font-size: 13px;
+          font-weight: 600;
           cursor: pointer;
-          font-size: 16px;
-          line-height: 1;
-          padding: 0;
           transition: all 0.15s;
         }
-        .ms-add-btn:hover {
-          border-color: #6e49cb;
-          background: #f8f7ff;
-          transform: scale(1.05);
+        .back-to-linker-btn:hover {
+          background: var(--border-3);
+          border-color: var(--text-3);
         }
-        .ms-track {
-          width: 80px;
-          height: 6px;
-          background: #e5e5e5;
-          border-radius: 3px;
-          overflow: hidden;
-        }
-        .ms-fill { height: 100%; background: #6e49cb; transition: width 0.3s; }
-        .ms-pct { font-size: 12px; font-weight: 600; color: #6e49cb; min-width: 30px; text-align: right; }
-        .ms-body { border-top: 1px solid #eaeaea; }
-        .ms-empty {
-          padding: 20px 24px;
-          font-size: 13px;
-          color: #999;
-          font-style: italic;
-          margin: 0;
-        }
-        .ms-issues { display: flex; flex-direction: column; }
-      `}</style>
-    </div>
-  );
-}
-
-/* ── Epic Card ──────────────────────────────────────────────────────── */
-
-function EpicCard({ epic }: { epic: ClickUpTask }) {
-  const subtasks = epic.subtasks ?? [];
-  const closed = subtasks.filter((s) => s.status.type === "closed").length;
-  const progress = subtasks.length > 0 ? (closed / subtasks.length) * 100 : 0;
-
-  return (
-    <div className="epic-card">
-      <div className="epic-left">
-        <span
-          className="epic-status-dot"
-          style={{ background: epic.status.color }}
-        />
-        <div className="epic-info">
-          <span className="epic-name">{epic.name}</span>
-          <span className="epic-meta">{subtasks.length} issues · {epic.status.status}</span>
-        </div>
-      </div>
-      <div className="epic-right">
-        <div className="e-track">
-          <div className="e-fill" style={{ width: `${progress}%` }} />
-        </div>
-        <span className="e-pct">{Math.round(progress)}%</span>
-      </div>
-
-      <style jsx>{`
-        .epic-card {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          background: #fff;
-          border: 1px solid #dcdcde;
-          border-radius: 6px;
-          padding: 12px 16px;
-          gap: 16px;
-          transition: background 0.15s;
-        }
-        .epic-card:hover { background: #f9f9fb; }
-        .epic-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
-        .epic-status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-        .epic-info { display: flex; flex-direction: column; gap: 2px; }
-        .epic-name { font-size: 14px; font-weight: 600; color: #1f1e24; }
-        .epic-meta { font-size: 11px; color: #888; text-transform: capitalize; }
-        .epic-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-        .e-track { width: 60px; height: 5px; background: #eaeaea; border-radius: 3px; overflow: hidden; }
-        .e-fill { height: 100%; background: #1f75cb; transition: width 0.3s; }
-        .e-pct { font-size: 11px; font-weight: 600; color: #666; min-width: 28px; text-align: right; }
       `}</style>
     </div>
   );

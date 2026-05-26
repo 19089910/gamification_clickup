@@ -49,13 +49,13 @@ export default function CreateIssueModal({
   const createMutation = useMutation({
     mutationFn: async () => {
       // 1. Create subtask
-      const subRes = await fetch(`/api/clickup/tasks/${selectedEpicId}/subtask`, {
+      const subRes = await fetch(`/api/clickup/tasks/${selectedEpicId}/subtasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
           status,
-          assignee_ids: assigneeId ? [Number(assigneeId)] : [],
+          assignees: assigneeId ? [Number(assigneeId)] : [],
           due_date: dueDate || undefined,
         }),
       });
@@ -69,8 +69,8 @@ export default function CreateIssueModal({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            dependsOnId: milestoneId,
-            type: "waiting_on",
+            depends_on: milestoneId,
+            dependency_type: "waiting_on",
           }),
         });
         if (!depRes.ok) console.warn("Failed to create dependency linkage");

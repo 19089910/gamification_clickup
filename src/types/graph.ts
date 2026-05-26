@@ -189,6 +189,7 @@ export interface HierarchySlice {
   expandPathToNode: (nodeId: string) => void;
   addTempNode: (parentId: string, parentType: 'folder' | 'list' | 'task') => string;
   removeTempNode: (nodeId: string) => void;
+  collapseToLists: () => void;
 }
 
 export interface DevSlice {
@@ -205,7 +206,6 @@ export interface DevSlice {
   stopTimer: () => void;
   tickTimer: () => void;
   toggleDevMode: (listId: string, tasks: any[], enable: boolean, queryClient?: any) => Promise<void>;
-  collapseToLists: () => void;
 }
 
 export type GraphStore = CoreSlice & UiSlice & ApiSlice & HierarchySlice & DevSlice;

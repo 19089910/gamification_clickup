@@ -35,7 +35,7 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { name, status, assignee_ids, due_date, description } = body;
+    const { name, status, assignees, due_date, description } = body;
 
     if (!name?.trim()) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
@@ -65,7 +65,7 @@ export async function POST(
     };
 
     if (status) payload.status = status;
-    if (assignee_ids && assignee_ids.length > 0) payload.assignees = assignee_ids;
+    if (assignees && assignees.length > 0) payload.assignees = assignees;
     if (due_date) {
       payload.due_date = new Date(due_date).getTime();
       payload.due_date_time = false;

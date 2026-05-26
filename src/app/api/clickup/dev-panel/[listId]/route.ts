@@ -6,11 +6,13 @@ import { ClickUpList, ClickUpTask, TasksResponse } from '@/types/clickup';
 /**
  * GET /api/clickup/dev-panel/[listId]
  *
- * Returns the list metadata + all top-level tasks (with their subtasks).
- * The client then separates:
- *   - Milestones  → tasks where task.custom_item_id === 1
- *   - Epics       → regular top-level tasks (task.custom_item_id !== 1)
- *   - Issues      → subtasks of Epics
+ * Returns list metadata + top-level tasks with subtasks properly nested.
+ *
+ * ClickUp's ?subtasks=true returns subtasks as FLAT siblings in the array
+ * (each with a `parent` field), NOT nested inside the parent task.
+ * We manually build the tree here so the client always gets:
+ *
+ *   task.subtasks = ClickUpTask[]   ← populated for Epics
  */
 export async function GET(
   req: NextRequest,
@@ -25,20 +27,44 @@ export async function GET(
 
     const [list, tasksData] = await Promise.all([
       fetchClickUp<ClickUpList>(`/list/${listId}`),
-      // include_closed=true   → see completed tasks
-      // subtasks=true         → expand subtask objects inline
-      // milestone=true        → include ClickUp milestone tasks
       fetchClickUp<TasksResponse>(
         `/list/${listId}/task?archived=false&include_closed=true&subtasks=true`
       ),
     ]);
 
-    // Separate top-level tasks (no parent) from subtasks already embedded
-    const topLevelTasks = tasksData.tasks.filter((t) => !t.parent);
+    const allTasks: ClickUpTask[] = tasksData.tasks;
+
+    // ── Build parent → children map ──────────────────────────────────────
+    // ClickUp returns subtasks flat with task.parent = parentTaskId (string)
+    const childrenMap = new Map<string, ClickUpTask[]>();
+
+    for (const task of allTasks) {
+      const parentId = typeof task.parent === 'string'
+        ? task.parent
+        : (task.parent as any)?.id ?? null;
+
+      if (parentId) {
+        if (!childrenMap.has(parentId)) childrenMap.set(parentId, []);
+        childrenMap.get(parentId)!.push(task);
+      }
+    }
+
+    // ── Attach subtasks to each top-level task ────────────────────────────
+    const topLevel = allTasks
+      .filter((t) => {
+        const parentId = typeof t.parent === 'string'
+          ? t.parent
+          : (t.parent as any)?.id ?? null;
+        return !parentId;
+      })
+      .map((task) => ({
+        ...task,
+        subtasks: childrenMap.get(task.id) ?? [],
+      }));
 
     return NextResponse.json({
       list,
-      tasks: topLevelTasks,
+      tasks: topLevel,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
