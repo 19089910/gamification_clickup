@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ClickUpList } from "@/types/clickup";
-
 interface DevHeaderProps {
   list: ClickUpList | null;
   /** If true, renders the Milestones dashboard header (no breadcrumb) */
@@ -16,19 +15,27 @@ export default function DevHeader({ list, isDashboard = false }: DevHeaderProps)
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
+    let lastY = window.scrollY;
+
     const handleScroll = () => {
-      setScrolled(window.scrollY > 10);
+      const currentY = window.scrollY;
+      // scrolling down → esconde; scrolling up ou no topo → mostra
+      if (currentY > lastY && currentY > 10) {
+        setScrolled(true);
+      } else {
+        setScrolled(false);
+      }
+      lastY = currentY;
     };
 
-    handleScroll(); // já verifica ao carregar
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
     <header className={`dev-header ${scrolled ? 'scrolled' : ''}`}>
       <div className="header-left">
-        <button className="back-btn" onClick={() => router.back()} aria-label="Go back">
+        <button className="back-btn" onClick={() => router.push('/map')} aria-label="Go back to mind map">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
             <path d="M9.78 12.78a.75.75 0 0 1-1.06 0L4.47 8.53a.75.75 0 0 1 0-1.06l4.25-4.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042L6.06 8l3.72 3.72a.75.75 0 0 1 0 1.06z" />
           </svg>
@@ -59,17 +66,14 @@ export default function DevHeader({ list, isDashboard = false }: DevHeaderProps)
 
       <style jsx>{`
         .dev-header {
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
           height: 56px;
-          background: #fff;
-          border-bottom: 1px solid #dcdcde;
+          background: #191661ff;
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 0 20px;
           flex-shrink: 0;
-          position: sticky;
-          top: 0;
-          z-index: 100;
         }
         .header-left {
           display: flex;
@@ -115,7 +119,7 @@ export default function DevHeader({ list, isDashboard = false }: DevHeaderProps)
           font-size: 16px;
         }
         .breadcrumb-current {
-          color: #1f1e24;
+          color: #ffffffff;
           font-weight: 600;
         }
         .header-right {
@@ -135,7 +139,13 @@ export default function DevHeader({ list, isDashboard = false }: DevHeaderProps)
         .header-badge.milestone {
           color: #6e49cb;
           background: #f0edfb;
-        }
+          }
+          .dev-header.scrolled {
+            transform: translateY(-100%);
+            opacity: 0;
+            pointer-events: none;
+          }
+        
       `}</style>
     </header>
   );
