@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo } from "react";
+import React, { memo, useState } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { TaskNode as TaskNodeType, NodeState } from "@/types/graph";
 import { parseLabelWithBrackets } from "@/utils/label-parser";
@@ -44,6 +44,17 @@ function formatDate(timestamp: string | null): string | null {
 const TaskNode = memo<NodeProps<TaskNodeType>>(({ data, selected }) => {
   const statusColor = (data.statusColor as string) || "#555";
 
+  // 1. Criamos o estado reativo
+  const [isFocus, setIsFocus] = useState(false);
+
+  // 2. Função de clique para alternar o modo Focus
+  const handlePrimaryAction = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Evita disparar eventos de seleção do nó no xyflow
+
+    // Alterna o estado (true <-> false)
+    setIsFocus((prev) => !prev);
+  };
+
   return (
     <div
       className={`task-node ${selected ? "selected" : ""}`}
@@ -62,9 +73,19 @@ const TaskNode = memo<NodeProps<TaskNodeType>>(({ data, selected }) => {
             {PRIORITY_LABELS[data.priority as string] ?? "⚪"}
           </span>
         )}
-        <span className="node-label task-label">
-          {parseLabelWithBrackets(data.label as string)}
-        </span>
+        <div className="node-header">
+          <span className="node-label task-label">
+            {parseLabelWithBrackets(data.label as string)}
+          </span>
+          <button
+            className={`add-task-btn ${isFocus ? 'dev-mode' : ''}`}
+            onClick={handlePrimaryAction}
+            title={isFocus ? 'Iniciar Timer' : 'Criar nova task'}
+          >
+            {isFocus ? '🍅' : '+'}
+          </button>
+        </div>
+
       </div>
       {data.variant === 'epic' && (
         <span className="node-meta" style={{ color: statusColor }}>
