@@ -55,6 +55,7 @@ export function transformClickUpToGraph(
         listCount: lists.length,
         color: folderColor,
         collapsed: getDefaultCollapsed('folder'),
+        parentId: spaceNodeId,
       },
     });
 
@@ -63,7 +64,7 @@ export function transformClickUpToGraph(
     const listInfos = lists.map(list => {
       const tasks = listTasksMap.get(list.id) ?? [];
       const quarters = getListQuarters(tasks);
-      
+
       // Resolve primary quarter by checking list name first, then fallback to tasks' quarters
       const nameUpper = list.name.toUpperCase();
       let primaryQuarter: string | null = null;
@@ -100,6 +101,7 @@ export function transformClickUpToGraph(
       listInfos.some(l => l.primaryQuarter === q)
     );
 
+    // ===== LISTS =====
     for (const info of listInfos) {
       const state = getNodeState(info.quarters, selectedQuarter);
 
@@ -117,6 +119,7 @@ export function transformClickUpToGraph(
           state,
           collapsed: getDefaultCollapsed('list'),
           isDev: info.isDev,
+          parentId: folderNodeId,
         },
       });
 
@@ -175,6 +178,7 @@ export function transformClickUpToGraph(
             state: taskState,
             collapsed: getDefaultCollapsed('task'),
             variant: getTaskVariant(task),
+            parentId: info.listNodeId,
           },
         });
 
@@ -183,7 +187,7 @@ export function transformClickUpToGraph(
           style: { stroke: info.listColor + '55', strokeWidth: 1 },
         });
 
-        // Add subtask nodes
+        // ===== SUBTASKS =====
         const subtasks = info.tasks.filter(t => t.parent === task.id);
         for (const sub of subtasks) {
           const subtaskNodeId = `subtask-${sub.id}`;
@@ -194,7 +198,6 @@ export function transformClickUpToGraph(
             data: {
               label: sub.name,
               taskId: sub.id,
-              parentId: task.id,
               status: sub.status?.status ?? '',
               statusColor: sub.status?.color ?? '#999',
               state: taskState,
@@ -202,6 +205,7 @@ export function transformClickUpToGraph(
               url: sub.url ?? '',
               time_spent: sub.time_spent ?? 0,
               checklists: sub.checklists ?? [],
+              parentId: taskNodeId,
             },
           });
 

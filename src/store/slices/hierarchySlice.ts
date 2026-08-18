@@ -4,6 +4,7 @@ import {
   calculateNodeVisibility,
   toggleSingleNodeCollapse,
   toggleFolderCollapse,
+  toggleSpaceCollapse,
 } from "@/utils/hierarchy";
 
 export interface HierarchySlice {
@@ -13,7 +14,7 @@ export interface HierarchySlice {
   viewAllProjects: () => void;
 }
 
-export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySlice> = (set, get) => ({
+export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySlice> = (set) => ({
   focusedNodeId: null,
 
   // Regra 5: Alterna o Focus Mode (🍅 / +) da Task
@@ -29,17 +30,20 @@ export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySli
     });
   },
 
-  // Regra 1, 3 e 4: Toggle genérico que roteia pela regra do nó
+  // Regras 1, 3 e 4: Roteamento explícito por tipo de nó
   toggleNodeCollapsed: (nodeId, nodeType) => {
     set((state) => {
       let updatedNodes: AppNode[];
 
-      if (nodeType === "folder") {
+      if (nodeType === "space") {
+        // Regra 1: Expande Space sem vazar Lists/Tasks
+        updatedNodes = toggleSpaceCollapse(state.fullNodes, nodeId);
+      } else if (nodeType === "folder") {
         // Regra 3: Expande Folder sem vazar Tasks
         updatedNodes = toggleFolderCollapse(state.fullNodes, nodeId);
       } else {
-        // Regras 1 e 4: Toggle padrão de Space ou List
-        updatedNodes = toggleSingleNodeCollapse(state.fullNodes, nodeId, nodeType || "");
+        // Regra 4: Toggle padrão (List ou Task)
+        updatedNodes = toggleSingleNodeCollapse(state.fullNodes, nodeId);
       }
 
       // Recalcula visibilidade no grafo

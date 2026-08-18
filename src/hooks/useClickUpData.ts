@@ -4,7 +4,7 @@ import { useGraphStore } from "@/store/graphStore";
 import { transformClickUpToGraph, SpaceInfo } from "@/lib/graph-transformer";
 import { getLayoutedElements } from "@/lib/layout";
 import { ClickUpFolder, ClickUpList, ClickUpTask } from "@/types/clickup";
-import { getVisibleGraph } from "@/utils/transformer-utils";
+import { calculateNodeVisibility } from "@/utils/hierarchy";
 
 export interface GraphApiResponse {
   folders: ClickUpFolder[];
@@ -21,12 +21,12 @@ async function fetchGraphData(spaceId: string): Promise<GraphApiResponse> {
 }
 
 export function useClickUpData(space: SpaceInfo) {
-  const { 
-    setNodes, 
-    setEdges, 
-    setFullGraph, 
-    setLoading, 
-    setError, 
+  const {
+    setNodes,
+    setEdges,
+    setFullGraph,
+    setLoading,
+    setError,
     selectedQuarter,
     fullNodes,
     fullEdges,
@@ -36,7 +36,7 @@ export function useClickUpData(space: SpaceInfo) {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["clickup-graph", space.id],
     queryFn: () => fetchGraphData(space.id),
-    staleTime: 0, // Fresh data on every refetch/invalidation
+    staleTime: 0,
     retry: 2,
     enabled: !!space.id,
   });
@@ -61,7 +61,6 @@ export function useClickUpData(space: SpaceInfo) {
     );
 
     // Preserve the user's collapse state when only the quarter filter changed.
-    // New nodes (not yet in the graph) keep their default from the transformer.
     const existingCollapse = new Map(
       useGraphStore.getState().fullNodes.map(n => [n.id, n.data.collapsed])
     );
@@ -76,15 +75,22 @@ export function useClickUpData(space: SpaceInfo) {
     setFullGraph(preservedNodes, rawEdges);
   }, [data, space, setFullGraph, selectedQuarter]);
 
-
   // Effect to update visible graph whenever fullNodes or fullEdges change
   useEffect(() => {
     if (fullNodes.length === 0) return;
 
-    const { nodes: visibleNodes, edges: visibleEdges } = getVisibleGraph(fullNodes, fullEdges);
-    
+    const focusedNodeId = useGraphStore.getState().focusedNodeId;
+    const visibleNodes = calculateNodeVisibility(fullNodes, focusedNodeId);
+
+    const visibleNodeIds = new Set(
+      visibleNodes.filter(n => !n.hidden).map(n => n.id)
+    );
+    const visibleEdges = fullEdges.filter(
+      edge => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)
+    );
+
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      visibleNodes,
+      visibleNodes.filter(n => !n.hidden),
       visibleEdges,
       layoutSettings,
       "LR"

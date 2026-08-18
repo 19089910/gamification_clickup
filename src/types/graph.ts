@@ -20,6 +20,7 @@ export interface FolderNodeData {
   color?: string;
   collapsed: boolean;
   [key: string]: unknown;
+  parentId: string;
 }
 
 export interface ListNodeData {
@@ -33,6 +34,7 @@ export interface ListNodeData {
   collapsed: boolean;
   isDev?: boolean;
   [key: string]: unknown;
+  parentId: string;
 }
 
 export interface TaskNodeData {
@@ -51,6 +53,7 @@ export interface TaskNodeData {
   collapsed: boolean;
   variant?: 'default' | 'epic';
   [key: string]: unknown;
+  parentId: string;
 }
 
 
@@ -58,7 +61,6 @@ export interface TaskNodeData {
 export interface SubtaskNodeData {
   label: string;
   taskId: string;
-  parentId: string;
   status: string;
   statusColor: string;
   state: NodeState;
@@ -67,6 +69,7 @@ export interface SubtaskNodeData {
   time_spent?: number;
   checklists?: { id: string; name: string; items: { id: string; name: string; resolved: boolean }[] }[];
   [key: string]: unknown;
+  parentId: string;
 }
 
 export interface TempNodeData {

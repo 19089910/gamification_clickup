@@ -1,90 +1,164 @@
 import { AppNode } from "@/types/graph";
 
 /**
- * Recalcula o estado 'hidden' dos nós do grafo respeitando a hierarquia
- * e o estado 'collapsed' de cada nó pai.
+ * Coleta todos os IDs descendentes de um nó pai.
  */
-export function calculateNodeVisibility(nodes: AppNode[], focusedNodeId: string | null): AppNode[] {
-    // Mapa de visibilidade por ID para rápida consulta durante a travessia
-    const hiddenMap = new Map<string, boolean>();
+function getDescendantIds(nodes: AppNode[], parentId: string): Set<string> {
+    const descendants = new Set<string>();
+    const queue = [parentId];
 
-    // 1. Identifica o pai da Task em foco (se houver Focus Mode ativo)
-    let focusListId: string | null = null;
-    if (focusedNodeId) {
-        const focusedTask = nodes.find((n) => n.id === focusedNodeId);
-        if (focusedTask) {
-            focusListId = typeof focusedTask.data.parentId === "string" ? focusedTask.data.parentId : null;
+    while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        for (const node of nodes) {
+            if (node.data?.parentId === currentId) {
+                descendants.add(node.id);
+                queue.push(node.id);
+            }
         }
     }
 
+    return descendants;
+}
+
+/**
+ * Coleta a cadeia de ancestrais (caminho até a raiz) de um nó.
+ */
+function getAncestorsPath(nodes: AppNode[], nodeId: string): Set<string> {
+    const path = new Set<string>();
+    let currentId: string | null = nodeId;
+
+    while (currentId) {
+        path.add(currentId);
+        const currentNode = nodes.find((n) => n.id === currentId);
+        currentId = (currentNode?.data?.parentId as string) || null;
+    }
+
+    return path;
+}
+
+/**
+ * Regra 1: Expandir/Colapsar Space
+ * Ao expandir: Garante que Lists, Tasks e Subtasks descendentes comecem colapsadas.
+ */
+export function toggleSpaceCollapse(nodes: AppNode[], spaceId: string): AppNode[] {
+    const spaceNode = nodes.find((n) => n.id === spaceId);
+    if (!spaceNode) return nodes;
+
+    const isExpanding = spaceNode.data?.collapsed ?? true;
+    const descendantIds = getDescendantIds(nodes, spaceId);
+
     return nodes.map((node) => {
-        // Regra especial: Focus Mode na Task (Regra 5)
-        if (focusedNodeId && focusListId) {
-            // Se pertence à mesma List da Task em foco, mas não é a própria Task em foco
-            if (node.data.parentId === focusListId && node.id !== focusedNodeId) {
-                return { ...node, hidden: true } as AppNode;
+        if (node.id === spaceId) {
+            return { ...node, data: { ...node.data, collapsed: !isExpanding } } as AppNode;
+        }
+
+        if (descendantIds.has(node.id)) {
+            if (node.type === "list" || node.type === "task") {
+                return { ...node, data: { ...node.data, collapsed: true } } as AppNode;
             }
         }
 
-        // Regra hierárquica normal: Se o pai direto estiver colapsado ou oculto, o nó fica oculto
-        const parentId = node.data.parentId;
-        if (parentId) {
-            const parentNode = nodes.find((n) => n.id === parentId);
-
-            // Se o pai não existe, está oculto ou colapsado, oculta o filho
-            if (!parentNode || parentNode.hidden || parentNode.data.collapsed) {
-                return { ...node, hidden: true } as AppNode;
-            }
-        }
-
-        return { ...node, hidden: false } as AppNode;
+        return node;
     });
 }
 
 /**
- * Regra 1, 3 e 4: Alterna o colapso de um nó individual
+ * Regra 3: Expandir/Colapsar Folder
+ * Ao expandir: Exibe apenas Lists e garante que Tasks e Subtasks fiquem colapsadas.
  */
-export function toggleSingleNodeCollapse(
-    nodes: AppNode[],
-    targetId: string,
-    nodeType: string
-): AppNode[] {
+export function toggleFolderCollapse(nodes: AppNode[], folderId: string): AppNode[] {
+    const folderNode = nodes.find((n) => n.id === folderId);
+    if (!folderNode) return nodes;
+
+    const isExpanding = folderNode.data?.collapsed ?? true;
+    const descendantIds = getDescendantIds(nodes, folderId);
+
+    return nodes.map((node) => {
+        if (node.id === folderId) {
+            return { ...node, data: { ...node.data, collapsed: !isExpanding } } as AppNode;
+        }
+
+        if (descendantIds.has(node.id)) {
+            if (node.type === "list" || node.type === "task") {
+                return { ...node, data: { ...node.data, collapsed: true } } as AppNode;
+            }
+        }
+
+        return node;
+    });
+}
+
+/**
+ * Regra 4: Toggle simples de List e demais nós.
+ */
+export function toggleSingleNodeCollapse(nodes: AppNode[], targetId: string): AppNode[] {
     return nodes.map((node) => {
         if (node.id !== targetId) return node;
-
-        const nextCollapsed = !node.data.collapsed;
 
         return {
             ...node,
             data: {
                 ...node.data,
-                collapsed: nextCollapsed,
+                collapsed: !node.data?.collapsed,
             },
         } as AppNode;
     });
 }
 
 /**
- * Regra 3 (Garantia Folder): Ao expandir um Folder, garante que
- * suas Lists filhas fiquem visíveis, mas que as Tasks permaneçam colapsadas.
+ * Recalcula a visibilidade ('hidden') respeitando:
+ * - O colapso dos ancestrais na árvore.
+ * - Regra 5 (Focus Mode): Preserva apenas o caminho ancestral da Task focada,
+ *   a Task focada e suas próprias Subtasks, ocultando as Tasks irmãs da mesma List.
  */
-export function toggleFolderCollapse(nodes: AppNode[], folderId: string): AppNode[] {
-    const folder = nodes.find((n) => n.id === folderId);
-    if (!folder) return nodes;
+export function calculateNodeVisibility(nodes: AppNode[], focusedNodeId: string | null): AppNode[] {
+    const nodeMap = new Map<string, AppNode>(nodes.map((n) => [n.id, n]));
 
-    const isExpanding = folder.data.collapsed;
+    // Dados de suporte para o Focus Mode
+    let focusListId: string | null = null;
+    let focusAncestors = new Set<string>();
+    let focusDescendants = new Set<string>();
+
+    if (focusedNodeId) {
+        const focusedTask = nodeMap.get(focusedNodeId);
+        if (focusedTask) {
+            focusListId = (focusedTask.data?.parentId as string) || null;
+            focusAncestors = getAncestorsPath(nodes, focusedNodeId);
+            focusDescendants = getDescendantIds(nodes, focusedNodeId);
+        }
+    }
 
     return nodes.map((node) => {
-        // Inverte o estado do Folder
-        if (node.id === folderId) {
-            return { ...node, data: { ...node.data, collapsed: !isExpanding } } as AppNode;
+        // 1. Tratamento da Regra 5 (Focus Mode)
+        if (focusedNodeId && focusListId) {
+            const parentId = node.data?.parentId as string | undefined;
+
+            // Mantém caminho de ancestrais, a própria Task em foco e suas Subtasks
+            const isAncestor = focusAncestors.has(node.id);
+            const isFocusedSelf = node.id === focusedNodeId;
+            const isSubtaskOfFocused = focusDescendants.has(node.id);
+
+            if (!isAncestor && !isFocusedSelf && !isSubtaskOfFocused) {
+                // Oculta irmãs da mesma List e galhos paralelos
+                if (parentId === focusListId && node.id !== focusedNodeId) {
+                    return { ...node, hidden: true } as AppNode;
+                }
+            }
         }
 
-        // Se estiver expandindo o Folder, garante que todas as Lists filhas nasçam colapsadas
-        if (isExpanding && node.data.parentId === folderId && node.type === "list") {
-            return { ...node, data: { ...node.data, collapsed: true } } as AppNode;
+        // 2. Avaliação de Visibilidade por Ancestrais (Cascade Collapsed / Hidden)
+        let currentParentId = node.data?.parentId as string | undefined;
+
+        while (currentParentId) {
+            const parentNode = nodeMap.get(currentParentId);
+
+            if (!parentNode || parentNode.data?.collapsed) {
+                return { ...node, hidden: true } as AppNode;
+            }
+
+            currentParentId = parentNode.data?.parentId as string | undefined;
         }
 
-        return node;
+        return { ...node, hidden: false } as AppNode;
     });
 }

@@ -13,7 +13,7 @@ const SpaceNode = memo<NodeProps<SpaceNodeType>>(({ id, data, selected }) => {
 
   const handleToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    toggleNodeCollapsed(id);
+    toggleNodeCollapsed(id, 'space');
   }, [id, toggleNodeCollapsed]);
 
   return (

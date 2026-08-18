@@ -40,7 +40,7 @@ const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
     const target = fullNodes.find(n => n.id === e.target);
     return target?.type === 'task';
   });
-  
+
   const isDev = !!data.isDev;
 
   const handleCreateTask = useCallback(async (e: React.MouseEvent) => {
@@ -57,7 +57,7 @@ const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
 
   const handleToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    toggleNodeCollapsed(id);
+    toggleNodeCollapsed(id, 'list');
   }, [id, toggleNodeCollapsed]);
 
   return (
@@ -66,7 +66,7 @@ const ListNode = memo<NodeProps<ListNodeType>>(({ id, data, selected }) => {
       style={getNodeStyle(accent, data.state as NodeState, selected)}
     >
       <Handle type="target" position={Position.Left} />
-      
+
       {hasTasks && (
         <button className="node-collapse-toggle" onClick={handleToggle}>
           {data.collapsed ? '+' : '−'}
