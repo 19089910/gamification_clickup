@@ -563,6 +563,10 @@ button {
   opacity: 1;
 }
 
+.task-node:hover .add-task-btn {
+  opacity: 1;
+}
+
 .add-task-btn:hover {
   background: var(--surface-3);
   color: var(--text-1);
