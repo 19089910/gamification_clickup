@@ -20,7 +20,7 @@ const FolderNode = memo<NodeProps<FolderNodeType>>(({ id, data, selected }) => {
 
   const handleToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    toggleNodeCollapsed(id);
+    toggleNodeCollapsed(id, "folder");
   }, [id, toggleNodeCollapsed]);
 
   return (
@@ -32,7 +32,7 @@ const FolderNode = memo<NodeProps<FolderNodeType>>(({ id, data, selected }) => {
       }}
     >
       <Handle type="target" position={Position.Left} />
-      
+
       {hasChildren && (
         <button className="node-collapse-toggle" onClick={handleToggle}>
           {data.collapsed ? '+' : '−'}
@@ -43,8 +43,8 @@ const FolderNode = memo<NodeProps<FolderNodeType>>(({ id, data, selected }) => {
       <div className="node-content">
         <div className="node-header">
           <span className="node-label">{data.label}</span>
-          <button 
-            className="add-task-btn" 
+          <button
+            className="add-task-btn"
             onClick={handleCreateList}
             title="Criar nova lista neste folder"
           >

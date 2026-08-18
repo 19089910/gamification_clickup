@@ -1,115 +1,90 @@
-import { AppNode, AppEdge } from '@/types/graph';
+import { AppNode } from "@/types/graph";
 
-/** 1 e 4. Toggle Genérico / Space & List */
-export function toggleSingleNodeCollapse(nodes: AppNode[], nodeId: string): AppNode[] {
+/**
+ * Recalcula o estado 'hidden' dos nós do grafo respeitando a hierarquia
+ * e o estado 'collapsed' de cada nó pai.
+ */
+export function calculateNodeVisibility(nodes: AppNode[], focusedNodeId: string | null): AppNode[] {
+    // Mapa de visibilidade por ID para rápida consulta durante a travessia
+    const hiddenMap = new Map<string, boolean>();
+
+    // 1. Identifica o pai da Task em foco (se houver Focus Mode ativo)
+    let focusListId: string | null = null;
+    if (focusedNodeId) {
+        const focusedTask = nodes.find((n) => n.id === focusedNodeId);
+        if (focusedTask) {
+            focusListId = typeof focusedTask.data.parentId === "string" ? focusedTask.data.parentId : null;
+        }
+    }
+
     return nodes.map((node) => {
-        if (node.id !== nodeId) return node;
+        // Regra especial: Focus Mode na Task (Regra 5)
+        if (focusedNodeId && focusListId) {
+            // Se pertence à mesma List da Task em foco, mas não é a própria Task em foco
+            if (node.data.parentId === focusListId && node.id !== focusedNodeId) {
+                return { ...node, hidden: true } as AppNode;
+            }
+        }
+
+        // Regra hierárquica normal: Se o pai direto estiver colapsado ou oculto, o nó fica oculto
+        const parentId = node.data.parentId;
+        if (parentId) {
+            const parentNode = nodes.find((n) => n.id === parentId);
+
+            // Se o pai não existe, está oculto ou colapsado, oculta o filho
+            if (!parentNode || parentNode.hidden || parentNode.data.collapsed) {
+                return { ...node, hidden: true } as AppNode;
+            }
+        }
+
+        return { ...node, hidden: false } as AppNode;
+    });
+}
+
+/**
+ * Regra 1, 3 e 4: Alterna o colapso de um nó individual
+ */
+export function toggleSingleNodeCollapse(
+    nodes: AppNode[],
+    targetId: string,
+    nodeType: string
+): AppNode[] {
+    return nodes.map((node) => {
+        if (node.id !== targetId) return node;
+
+        const nextCollapsed = !node.data.collapsed;
+
         return {
             ...node,
-            data: { ...node.data, collapsed: !node.data.collapsed },
+            data: {
+                ...node.data,
+                collapsed: nextCollapsed,
+            },
         } as AppNode;
     });
 }
 
-/** 2. Visão Global de Projetos (Antigo collapseToLists) */
-export function applyViewAllProjects(nodes: AppNode[]): AppNode[] {
-    return nodes.map((node) => {
-        if (node.type === 'list') {
-            return { ...node, data: { ...node.data, collapsed: true } } as AppNode;
-        }
-        if (node.type === 'folder' || node.type === 'space') {
-            return { ...node, data: { ...node.data, collapsed: false } } as AppNode;
-        }
-        return node;
-    });
-}
+/**
+ * Regra 3 (Garantia Folder): Ao expandir um Folder, garante que
+ * suas Lists filhas fiquem visíveis, mas que as Tasks permaneçam colapsadas.
+ */
+export function toggleFolderCollapse(nodes: AppNode[], folderId: string): AppNode[] {
+    const folder = nodes.find((n) => n.id === folderId);
+    if (!folder) return nodes;
 
-/** 3. Toggle de Folder (Garante que as listas filhas nasçam colapsadas) */
-export function toggleFolderCollapse(
-    nodes: AppNode[],
-    edges: AppEdge[],
-    folderId: string
-): AppNode[] {
-    const targetFolder = nodes.find((n) => n.id === folderId);
-    if (!targetFolder) return nodes;
-
-    const willCollapse = !targetFolder.data.collapsed;
-
-    // Descobre quais são as listas dentro deste folder
-    const childListIds = new Set(
-        edges.filter((e) => e.source === folderId).map((e) => e.target)
-    );
+    const isExpanding = folder.data.collapsed;
 
     return nodes.map((node) => {
-        // Altera o folder clicado
+        // Inverte o estado do Folder
         if (node.id === folderId) {
-            return { ...node, data: { ...node.data, collapsed: willCollapse } } as AppNode;
-        }
-        // Se está expandindo o folder, garante que as listas filhas fiquem colapsadas
-        if (!willCollapse && childListIds.has(node.id)) {
-            return { ...node, data: { ...node.data, collapsed: true } } as AppNode;
-        }
-        return node;
-    });
-}
-
-
-/** 4. Toggle de Foco na Task (Oculta/Mostra irmãs na List pai) */
-export function applyTaskFocusToggle(
-    nodes: AppNode[],
-    edges: AppEdge[],
-    focusTaskId: string | null
-): AppNode[] {
-    if (!focusTaskId) {
-        // Se removeu o foco (null), não toca na estrutura global, só garante
-        // que as tasks da lista voltam a responder ao estado normal da List.
-        return nodes;
-    }
-
-    // Identifica a lista pai da task focada
-    const parentListEdge = edges.find((e) => e.target === focusTaskId);
-    const parentListId = parentListEdge?.source;
-
-    // Identifica subtasks (descendentes da task focada)
-    const descendants = getDescendantNodeIds(focusTaskId, edges);
-
-    return nodes.map((node) => {
-        // É a própria task focada ou subtask dela -> MANTÉM VISÍVEL
-        if (node.id === focusTaskId || descendants.has(node.id)) {
-            return { ...node, data: { ...node.data, collapsed: false } } as AppNode;
+            return { ...node, data: { ...node.data, collapsed: !isExpanding } } as AppNode;
         }
 
-        // Checa se é uma task irmã (mesma lista pai)
-        const isSibling = edges.some(
-            (e) => e.source === parentListId && e.target === node.id && node.id !== focusTaskId
-        );
-
-        // Se for irmã da task focada -> COLAPSA (Guarda)
-        if (isSibling) {
+        // Se estiver expandindo o Folder, garante que todas as Lists filhas nasçam colapsadas
+        if (isExpanding && node.data.parentId === folderId && node.type === "list") {
             return { ...node, data: { ...node.data, collapsed: true } } as AppNode;
         }
 
         return node;
     });
 }
-
-
-/** 5. Helper auxiliar de descendentes */
-function getDescendantNodeIds(rootId: string, edges: AppEdge[]): Set<string> {
-    const visited = new Set<string>([rootId]);
-    const queue = [rootId];
-
-    while (queue.length > 0) {
-        const currentId = queue.shift()!;
-        edges.forEach((edge) => {
-            if (edge.source === currentId && !visited.has(edge.target)) {
-                visited.add(edge.target);
-                queue.push(edge.target);
-            }
-        });
-    }
-
-    return visited;
-}
-
-

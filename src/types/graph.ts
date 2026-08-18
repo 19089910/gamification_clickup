@@ -128,6 +128,9 @@ export interface LayoutSettings {
 
 import { OnNodesChange, OnEdgesChange } from '@xyflow/react';
 
+import { type Season } from "@/config/quarters";
+import { TempNodeSlice } from "@/store/slices/tempNodeSlice";
+
 // --- Store Slices ---
 
 export interface CoreSlice {
@@ -173,8 +176,6 @@ export interface UiSlice {
   setQuarterPickerModal: (data: Partial<UiSlice['quarterPickerModal']>) => void;
 }
 
-import { type Season } from "@/config/quarters";
-
 export interface ApiSlice {
   createTask: (listId: string, name: string, quarter: Season | null) => Promise<any>;
   createList: (folderId: string, name: string, quarter: string | null) => Promise<any>;
@@ -189,8 +190,6 @@ export interface HierarchySlice {
   toggleNodeCollapsed: (nodeId: string, nodeType?: string) => void;
   viewAllProjects: () => void;
   setFocusedNode: (nodeId: string | null) => void;
-  addTempNode: (parentId: string, parentType: 'folder' | 'list' | 'task') => void;
-  removeTempNode: (nodeId: string) => void;
 }
 
 export interface DevSlice {
@@ -209,4 +208,12 @@ export interface DevSlice {
   toggleDevMode: (listId: string, tasks: any[], enable: boolean, queryClient?: any) => Promise<void>;
 }
 
-export type GraphStore = CoreSlice & UiSlice & ApiSlice & HierarchySlice & DevSlice;
+// Re-exporta para facilidade de uso externo
+export type { TempNodeSlice };
+
+export type GraphStore = CoreSlice &
+  UiSlice &
+  ApiSlice &
+  HierarchySlice &
+  DevSlice &
+  TempNodeSlice;

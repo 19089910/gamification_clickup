@@ -1,103 +1,70 @@
-import { StateCreator } from 'zustand';
-import { GraphStore, HierarchySlice, AppNode } from '@/types/graph';
-import { syncSelectedNode } from '@/store/helpers';
-
+import { StateCreator } from "zustand";
+import { AppNode, GraphStore } from "@/types/graph";
 import {
-  toggleFolderCollapse,
+  calculateNodeVisibility,
   toggleSingleNodeCollapse,
-  applyViewAllProjects,
-  applyTaskFocusToggle,
+  toggleFolderCollapse,
+} from "@/utils/hierarchy";
 
-} from '@/utils/hierarchy';
+export interface HierarchySlice {
+  focusedNodeId: string | null;
+  setFocusedNode: (nodeId: string | null) => void;
+  toggleNodeCollapsed: (nodeId: string, nodeType?: string) => void;
+  viewAllProjects: () => void;
+}
 
 export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySlice> = (set, get) => ({
   focusedNodeId: null,
-  /* ==========================================================================
-   Colapsar/Descolapsar Nodes
-   ========================================================================== */
-  toggleNodeCollapsed: (nodeId, nodeType) => {
-    set((state) => {
-      let newFullNodes = state.fullNodes;
 
-      // Se for Folder, aplica a regra de não vazar Tasks
-      if (nodeType === 'folder') {
-        newFullNodes = toggleFolderCollapse(state.fullNodes, state.fullEdges, nodeId);
-      } else {
-        // Space e List usam o toggle direto
-        newFullNodes = toggleSingleNodeCollapse(state.fullNodes, nodeId);
-      }
-
-      return {
-        fullNodes: newFullNodes,
-        selectedNode: syncSelectedNode(state.selectedNode, newFullNodes),
-      };
-    });
-  },
-
-  viewAllProjects: () => {
-    set((state) => ({
-      fullNodes: applyViewAllProjects(state.fullNodes),
-    }));
-  },
-
+  // Regra 5: Alterna o Focus Mode (🍅 / +) da Task
   setFocusedNode: (nodeId) => {
     set((state) => {
-      const isRemoving = !nodeId || state.focusedNodeId === nodeId;
-      const nextFocusId = isRemoving ? null : nodeId;
-
-      // Ao aplicar/remover foco, filtra/restaura apenas as tarefas irmãs
-      const updatedNodes = applyTaskFocusToggle(state.fullNodes, state.fullEdges, nextFocusId);
+      const nextFocusedId = state.focusedNodeId === nodeId ? null : nodeId;
+      const updatedNodes = calculateNodeVisibility(state.fullNodes, nextFocusedId);
 
       return {
-        focusedNodeId: nextFocusId,
+        focusedNodeId: nextFocusedId,
         fullNodes: updatedNodes,
-        selectedNode: syncSelectedNode(state.selectedNode, updatedNodes),
       };
     });
   },
-  /* ==========================================================================
-   Nodes Temporarios
-   ========================================================================== */
-  addTempNode: (parentId, parentType) => {
-    set((state) => {
-      const parentNode = state.fullNodes.find((n) => n.id === parentId);
-      if (!parentNode) return state;
 
-      // Garante que o nó pai esteja descolapsado
-      const updatedNodes = state.fullNodes.map((node) => {
-        if (node.id === parentId && node.data.collapsed) {
+  // Regra 1, 3 e 4: Toggle genérico que roteia pela regra do nó
+  toggleNodeCollapsed: (nodeId, nodeType) => {
+    set((state) => {
+      let updatedNodes: AppNode[];
+
+      if (nodeType === "folder") {
+        // Regra 3: Expande Folder sem vazar Tasks
+        updatedNodes = toggleFolderCollapse(state.fullNodes, nodeId);
+      } else {
+        // Regras 1 e 4: Toggle padrão de Space ou List
+        updatedNodes = toggleSingleNodeCollapse(state.fullNodes, nodeId, nodeType || "");
+      }
+
+      // Recalcula visibilidade no grafo
+      const finalNodes = calculateNodeVisibility(updatedNodes, state.focusedNodeId);
+
+      return { fullNodes: finalNodes };
+    });
+  },
+
+  // Regra 2: View Projects (Mostra apenas as Lists)
+  viewAllProjects: () => {
+    set((state) => {
+      const updatedNodes = state.fullNodes.map((node: AppNode) => {
+        if (node.type === "space" || node.type === "folder") {
           return { ...node, data: { ...node.data, collapsed: false } } as AppNode;
+        }
+        if (node.type === "list") {
+          return { ...node, data: { ...node.data, collapsed: true } } as AppNode;
         }
         return node;
       });
 
-      const tempId = `temp-${Date.now()}`;
-      const tempNode: AppNode = {
-        id: tempId,
-        type: 'temp',
-        position: {
-          x: parentNode.position.x + 260,
-          y: parentNode.position.y + 50,
-        },
-        data: {
-          label: '',
-          parentId,
-          parentType,
-          isTemp: true,
-          collapsed: false,
-        },
-      };
+      const finalNodes = calculateNodeVisibility(updatedNodes, state.focusedNodeId);
 
-      return {
-        fullNodes: [...updatedNodes, tempNode],
-      };
+      return { fullNodes: finalNodes };
     });
   },
-
-  removeTempNode: (tempNodeId) => {
-    set((state) => ({
-      fullNodes: state.fullNodes.filter((node) => node.id !== tempNodeId),
-    }));
-  },
 });
-

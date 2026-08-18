@@ -43,17 +43,16 @@ function formatDate(timestamp: string | null): string | null {
 }
 
 const TaskNode = memo<NodeProps<TaskNodeType>>(({ id, data, selected }) => {
-  const { focusedNodeId, setFocusedNode } = useGraphStore();
   const statusColor = (data.statusColor as string) || "#555";
 
-  // Conecta apenas o necessário do Zustand
+  const focusedNodeId = useGraphStore((state) => state.focusedNodeId);
+  const setFocusedNode = useGraphStore((state) => state.setFocusedNode);
+
   const isFocused = focusedNodeId === id;
 
-  // 2. Função de clique para alternar o modo Focus
   const handlePrimaryAction = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Alterna o foco na store
-    setFocusedNode(isFocused ? null : id);
+    setFocusedNode(id);
   };
 
   return (
