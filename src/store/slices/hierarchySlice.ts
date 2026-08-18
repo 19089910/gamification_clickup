@@ -1,19 +1,20 @@
 import { StateCreator } from 'zustand';
-import { GraphStore, HierarchySlice, AppNode, AppEdge } from '@/types/graph';
-import { syncSelectedNode } from '../helpers';
+import { GraphStore, HierarchySlice, AppNode } from '@/types/graph';
+import { syncSelectedNode } from '@/store/helpers';
+
 import {
   toggleFolderCollapse,
   toggleSingleNodeCollapse,
   applyViewAllProjects,
   applyTaskFocusToggle,
-  expandPathToNode,
-  addTempNode,
-  removeTempNode,
+
 } from '@/utils/hierarchy';
 
 export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySlice> = (set, get) => ({
   focusedNodeId: null,
-
+  /* ==========================================================================
+   Colapsar/Descolapsar Nodes
+   ========================================================================== */
   toggleNodeCollapsed: (nodeId, nodeType) => {
     set((state) => {
       let newFullNodes = state.fullNodes;
@@ -54,27 +55,30 @@ export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySli
       };
     });
   },
-
   /* ==========================================================================
-   MANIPULAÇÃO TEMPORÁRIA
+   Nodes Temporarios
    ========================================================================== */
-
-  expandPathToNode: (nodeId) => {
-    set((state) => ({
-      fullNodes: expandPathToNode(state.fullNodes, state.fullEdges, nodeId),
-    }));
-  },
-
   addTempNode: (parentId, parentType) => {
     set((state) => {
       const parentNode = state.fullNodes.find((n) => n.id === parentId);
       if (!parentNode) return state;
 
+      // Garante que o nó pai esteja descolapsado
+      const updatedNodes = state.fullNodes.map((node) => {
+        if (node.id === parentId && node.data.collapsed) {
+          return { ...node, data: { ...node.data, collapsed: false } } as AppNode;
+        }
+        return node;
+      });
+
       const tempId = `temp-${Date.now()}`;
       const tempNode: AppNode = {
         id: tempId,
         type: 'temp',
-        position: { x: parentNode.position.x + 250, y: parentNode.position.y },
+        position: {
+          x: parentNode.position.x + 260,
+          y: parentNode.position.y + 50,
+        },
         data: {
           label: '',
           parentId,
@@ -84,13 +88,15 @@ export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySli
         },
       };
 
-      return { fullNodes: addTempNode(state.fullNodes, parentId, tempNode) };
+      return {
+        fullNodes: [...updatedNodes, tempNode],
+      };
     });
   },
 
   removeTempNode: (tempNodeId) => {
     set((state) => ({
-      fullNodes: removeTempNode(state.fullNodes, tempNodeId),
+      fullNodes: state.fullNodes.filter((node) => node.id !== tempNodeId),
     }));
   },
 });

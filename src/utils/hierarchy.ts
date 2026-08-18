@@ -53,11 +53,8 @@ export function toggleFolderCollapse(
     });
 }
 
-/* ==========================================================================
-   MANIPULAÇÃO TEMPORÁRIA
-   ========================================================================== */
 
-/** 5. Toggle de Foco na Task (Oculta/Mostra irmãs na List pai) */
+/** 4. Toggle de Foco na Task (Oculta/Mostra irmãs na List pai) */
 export function applyTaskFocusToggle(
     nodes: AppNode[],
     edges: AppEdge[],
@@ -96,7 +93,8 @@ export function applyTaskFocusToggle(
     });
 }
 
-/** Helper auxiliar de descendentes */
+
+/** 5. Helper auxiliar de descendentes */
 function getDescendantNodeIds(rootId: string, edges: AppEdge[]): Set<string> {
     const visited = new Set<string>([rootId]);
     const queue = [rootId];
@@ -114,54 +112,4 @@ function getDescendantNodeIds(rootId: string, edges: AppEdge[]): Set<string> {
     return visited;
 }
 
-/** Retorna todos os ancestrais (pais até a raiz) de um nó */
-export function getAncestorNodeIds(targetId: string, edges: AppEdge[]): Set<string> {
-    const ancestors = new Set<string>();
-    const queue = [targetId];
 
-    while (queue.length > 0) {
-        const currentId = queue.shift()!;
-        edges.forEach((edge) => {
-            if (edge.target === currentId && !ancestors.has(edge.source)) {
-                ancestors.add(edge.source);
-                queue.push(edge.source);
-            }
-        });
-    }
-
-    return ancestors;
-}
-
-
-/* ==========================================================================
-   EXPANSÃO DE CAMINHO E MANIPULAÇÃO TEMPORÁRIA
-   ========================================================================== */
-
-/** Expande todo o caminho do nó até a raiz (útil ao selecionar/buscar um nó) */
-export function expandPathToNode(
-    nodes: AppNode[],
-    edges: AppEdge[],
-    targetNodeId: string
-): AppNode[] {
-    const ancestorIds = getAncestorNodeIds(targetNodeId, edges);
-
-    return nodes.map((node) => {
-        if (ancestorIds.has(node.id) && node.data.collapsed) {
-            return {
-                ...node,
-                data: { ...node.data, collapsed: false },
-            } as AppNode;
-        }
-        return node;
-    });
-}
-
-/** Adiciona um nó temporário (ex: rascunho de criação) */
-export function addTempNode(nodes: AppNode[], parentId: string, tempNode: AppNode): AppNode[] {
-    return [...nodes, tempNode];
-}
-
-/** Remove nós temporários ou de rascunho */
-export function removeTempNode(nodes: AppNode[], tempNodeId: string): AppNode[] {
-    return nodes.filter((node) => node.id !== tempNodeId);
-}

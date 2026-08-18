@@ -189,11 +189,8 @@ export interface HierarchySlice {
   toggleNodeCollapsed: (nodeId: string, nodeType?: string) => void;
   viewAllProjects: () => void;
   setFocusedNode: (nodeId: string | null) => void;
-
-  // Temporários mantidos na interface
   addTempNode: (parentId: string, parentType: 'folder' | 'list' | 'task') => void;
   removeTempNode: (nodeId: string) => void;
-  expandPathToNode: (targetNodeId: string) => void;
 }
 
 export interface DevSlice {
