@@ -187,7 +187,7 @@ export interface ApiSlice {
 export interface HierarchySlice {
   toggleNodeCollapsed: (nodeId: string) => void;
   expandPathToNode: (nodeId: string) => void;
-  addTempNode: (parentId: string, parentType: 'folder' | 'list' | 'task') => string;
+  addTempNode: (tempNode: AppNode, tempEdge: AppEdge) => void;
   removeTempNode: (nodeId: string) => void;
   collapseToLists: () => void;
 }
