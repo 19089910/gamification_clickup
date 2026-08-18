@@ -1,9 +1,10 @@
 "use client";
 
-import React, { memo, useState } from "react";
+import React, { memo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { TaskNode as TaskNodeType, NodeState } from "@/types/graph";
 import { parseLabelWithBrackets } from "@/utils/label-parser";
+import { useGraphStore } from "@/store/graphStore";
 
 function getNodeStyle(color: string, state: NodeState | undefined, isSelected: boolean) {
   if (!state || state === 'active') {
@@ -41,18 +42,18 @@ function formatDate(timestamp: string | null): string | null {
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
 
-const TaskNode = memo<NodeProps<TaskNodeType>>(({ data, selected }) => {
+const TaskNode = memo<NodeProps<TaskNodeType>>(({ id, data, selected }) => {
+  const { focusedNodeId, setFocusedNode } = useGraphStore();
   const statusColor = (data.statusColor as string) || "#555";
 
-  // 1. Criamos o estado reativo
-  const [isFocus, setIsFocus] = useState(false);
+  // Conecta apenas o necessário do Zustand
+  const isFocused = focusedNodeId === id;
 
   // 2. Função de clique para alternar o modo Focus
   const handlePrimaryAction = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Evita disparar eventos de seleção do nó no xyflow
-
-    // Alterna o estado (true <-> false)
-    setIsFocus((prev) => !prev);
+    e.stopPropagation();
+    // Alterna o foco na store
+    setFocusedNode(isFocused ? null : id);
   };
 
   return (
@@ -78,11 +79,11 @@ const TaskNode = memo<NodeProps<TaskNodeType>>(({ data, selected }) => {
             {parseLabelWithBrackets(data.label as string)}
           </span>
           <button
-            className={`add-task-btn ${isFocus ? 'dev-mode' : ''}`}
+            className={`add-task-btn ${isFocused ? 'dev-mode' : ''}`}
             onClick={handlePrimaryAction}
-            title={isFocus ? 'Iniciar Timer' : 'Criar nova task'}
+            title={isFocused ? 'Parar Timer' : 'Iniciar Timer'}
           >
-            {isFocus ? '🍅' : '+'}
+            {isFocused ? '🍅' : '+'}
           </button>
         </div>
 

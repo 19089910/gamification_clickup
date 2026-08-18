@@ -66,3 +66,67 @@ export function applyCollapseToLists(nodes: AppNode[]): AppNode[] {
         return node;
     });
 }
+
+/**
+ * Função pura que obtém descendentes (subtasks) de um nó
+ */
+export function getDescendantNodeIds(rootId: string, edges: AppEdge[]): Set<string> {
+    const visited = new Set<string>([rootId]);
+    const queue = [rootId];
+
+    while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        edges.forEach((edge) => {
+            if (edge.source === currentId && !visited.has(edge.target)) {
+                visited.add(edge.target);
+                queue.push(edge.target);
+            }
+        });
+    }
+
+    return visited;
+}
+
+/**
+ * Função pura que obtém ancestrais para manter o caminho até a raiz visível
+ */
+export function getAncestorNodeIds(targetId: string, edges: AppEdge[]): Set<string> {
+    const ancestors = new Set<string>();
+    const queue = [targetId];
+
+    while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        edges.forEach((edge) => {
+            if (edge.target === currentId && !ancestors.has(edge.source)) {
+                ancestors.add(edge.source);
+                queue.push(edge.source);
+            }
+        });
+    }
+
+    return ancestors;
+}
+
+/**
+ * Colapsa todos os nós exceto o nó focado, suas subtasks e seus ancestrais
+ */
+export function applyFocusToNodes(
+    nodes: AppNode[],
+    edges: AppEdge[],
+    focusNodeId: string
+): AppNode[] {
+    const descendants = getDescendantNodeIds(focusNodeId, edges);
+    const ancestors = getAncestorNodeIds(focusNodeId, edges);
+    const allowedIds = new Set([...descendants, ...ancestors]);
+
+    return nodes.map((node) => {
+        const isAllowed = allowedIds.has(node.id);
+        return {
+            ...node,
+            data: {
+                ...node.data,
+                collapsed: !isAllowed,
+            },
+        } as AppNode;
+    });
+}
