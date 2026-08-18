@@ -53,7 +53,7 @@ export function toggleSpaceCollapse(nodes: AppNode[], spaceId: string): AppNode[
         }
 
         if (descendantIds.has(node.id)) {
-            if (node.type === "list" || node.type === "task") {
+            if (node.type === "list") {
                 return { ...node, data: { ...node.data, collapsed: true } } as AppNode;
             }
         }
@@ -79,7 +79,7 @@ export function toggleFolderCollapse(nodes: AppNode[], folderId: string): AppNod
         }
 
         if (descendantIds.has(node.id)) {
-            if (node.type === "list" || node.type === "task") {
+            if (node.type === "list") {
                 return { ...node, data: { ...node.data, collapsed: true } } as AppNode;
             }
         }
