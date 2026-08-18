@@ -4,7 +4,8 @@ import { syncSelectedNode } from '../helpers';
 import {
   toggleNodeCollapseState,
   getNodesWithExpandedPath,
-  applyCollapseToLists
+  applyCollapseToLists,
+  applyFocusToNodes
 } from '@/utils/hierarchy';
 
 export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySlice> = (set, get) => ({
@@ -47,6 +48,25 @@ export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySli
     const nodes = get().fullNodes;
     set({
       fullNodes: applyCollapseToLists(nodes),
+    });
+  },
+
+  focusedNodeId: null,
+
+  setFocusedNode: (nodeId) => {
+    set((state) => {
+      // Se passar null ou o mesmo nó já focado, desativa o foco
+      if (!nodeId || state.focusedNodeId === nodeId) {
+        return { focusedNodeId: null };
+      }
+
+      const updatedNodes = applyFocusToNodes(state.fullNodes, state.fullEdges, nodeId);
+
+      return {
+        focusedNodeId: nodeId,
+        fullNodes: updatedNodes,
+        selectedNode: syncSelectedNode(state.selectedNode, updatedNodes),
+      };
     });
   },
 });

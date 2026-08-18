@@ -190,6 +190,8 @@ export interface HierarchySlice {
   addTempNode: (tempNode: AppNode, tempEdge: AppEdge) => void;
   removeTempNode: (nodeId: string) => void;
   collapseToLists: () => void;
+  focusedNodeId: string | null;
+  setFocusedNode: (nodeId: string | null) => void;
 }
 
 export interface DevSlice {
