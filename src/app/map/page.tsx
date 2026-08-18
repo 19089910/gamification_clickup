@@ -42,7 +42,7 @@ function MapView() {
   }), [spaceId, spaceName, spaceColor]);
 
   const { isLoading, isError, error } = useClickUpData(space);
-  const { nodes, edges, selectedQuarter, setQuarter, setSpaceId, collapseToLists } = useGraphStore();
+  const { nodes, edges, selectedQuarter, setQuarter, setSpaceId, viewAllProjects } = useGraphStore();
 
   useEffect(() => {
     if (spaceId) {
@@ -72,7 +72,7 @@ function MapView() {
         <div className="topbar-divider" />
         <h1 className="topbar-title">{spaceName}</h1>
         <button
-          onClick={collapseToLists}
+          onClick={viewAllProjects}
           style={{
             padding: '4px 10px',
             background: '#161616',

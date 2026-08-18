@@ -73,7 +73,7 @@ export interface TempNodeData {
   label: string;
   isTemp: boolean;
   parentId: string;
-  parentType: 'folder' | 'list';
+  parentType: 'folder' | 'list' | 'task';
   collapsed: boolean;
   [key: string]: unknown;
 }
@@ -185,13 +185,15 @@ export interface ApiSlice {
 }
 
 export interface HierarchySlice {
-  toggleNodeCollapsed: (nodeId: string) => void;
-  expandPathToNode: (nodeId: string) => void;
-  addTempNode: (tempNode: AppNode, tempEdge: AppEdge) => void;
-  removeTempNode: (nodeId: string) => void;
-  collapseToLists: () => void;
   focusedNodeId: string | null;
+  toggleNodeCollapsed: (nodeId: string, nodeType?: string) => void;
+  viewAllProjects: () => void;
   setFocusedNode: (nodeId: string | null) => void;
+
+  // Temporários mantidos na interface
+  addTempNode: (parentId: string, parentType: 'folder' | 'list' | 'task') => void;
+  removeTempNode: (nodeId: string) => void;
+  expandPathToNode: (targetNodeId: string) => void;
 }
 
 export interface DevSlice {
