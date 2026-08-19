@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useGraphStore } from "@/store/graphStore";
 import { useQueryClient } from "@tanstack/react-query";
 import { GraphApiResponse } from "@/hooks/useClickUpData";
-import { SEASON_MAP, TRIMESTRE_FIELD_ID, type Season } from "@/config/quarters";
+import { SEASON_MAP, SEASON_CONFIG, TRIMESTRE_FIELD_ID, type Season } from "@/config/quarters";
 
 export default function EditTaskModal() {
   const { editTaskModal, setEditTaskModal, updateTask } = useGraphStore();
@@ -42,12 +42,12 @@ export default function EditTaskModal() {
               if (idx !== -1) {
                 const originalTask = newListTasksMap[lid][idx];
                 const updatedTask = { ...originalTask, ...(updates.name ? { name: updates.name } : {}) };
-                
+
                 // Sync custom fields for quarter
                 if (updates.quarter && SEASON_MAP[updates.quarter as Season]) {
                   const cfIndex = updatedTask.custom_fields?.findIndex(cf => cf.id === TRIMESTRE_FIELD_ID);
                   const customFields = [...(updatedTask.custom_fields || [])];
-                  
+
                   if (cfIndex !== undefined && cfIndex !== -1) {
                     customFields[cfIndex] = { ...customFields[cfIndex], value: SEASON_MAP[updates.quarter as Season] };
                   } else {
@@ -76,7 +76,7 @@ export default function EditTaskModal() {
           alert("Falha ao salvar alterações - Revertendo.");
         }
       }
-      
+
       setEditTaskModal({ isOpen: false });
     } catch (error) {
       console.error("Save failed:", error);
@@ -108,11 +108,15 @@ export default function EditTaskModal() {
 
           <div className="form-group">
             <label>Trimestre</label>
-            <select value={quarter} onChange={(e) => setQuarter(e.target.value as Season)}>
-              <option value="SUMMER">☀️ SUMMER</option>
-              <option value="FALL">🍂 FALL</option>
-              <option value="WINTER">❄️ WINTER</option>
-              <option value="SPRING">🌸 SPRING</option>
+            <select
+              value={quarter}
+              onChange={(e) => setQuarter(e.target.value as Season)}
+            >
+              {SEASON_CONFIG.map((season) => (
+                <option key={season.id} value={season.id}>
+                  {season.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>

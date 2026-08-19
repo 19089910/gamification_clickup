@@ -21,6 +21,7 @@ import {
     createSubtaskNode
 } from './node-factories';
 import { createTaskEdge, createSubtaskEdge } from './edge-factories';
+import { SEASONS } from '@/config/quarters';
 
 export interface SpaceInfo {
     id: string;
@@ -37,8 +38,6 @@ interface ProcessedListInfo {
     listColor: string;
     isDev: boolean;
 }
-
-const SEASON_ORDER = ['SUMMER', 'FALL', 'WINTER', 'SPRING'] as const;
 
 export function transformClickUpToGraph(
     space: SpaceInfo,
@@ -82,7 +81,7 @@ export function transformClickUpToGraph(
             };
         });
 
-        const activeQuarters = SEASON_ORDER.filter(q =>
+        const activeQuarters = SEASONS.filter(q =>
             listInfos.some(l => l.primaryQuarter === q)
         );
 

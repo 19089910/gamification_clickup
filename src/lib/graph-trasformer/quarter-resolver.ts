@@ -1,8 +1,6 @@
 import { ClickUpTask } from '@/types/clickup';
-import { SEASON_MAP, TRIMESTRE_FIELD_ID } from '@/config/quarters';
+import { SEASON_MAP, TRIMESTRE_FIELD_ID, SEASONS } from '@/config/quarters';
 
-export const SEASONS = ['SUMMER', 'FALL', 'WINTER', 'SPRING'] as const;
-export type Season = (typeof SEASONS)[number];
 
 // ============================================================================
 // ClickUp Field Extraction Helpers

@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useGraphStore } from "@/store/graphStore";
-import { transformClickUpToGraph, SpaceInfo } from "@/lib/graph-transformer";
+import { transformClickUpToGraph, SpaceInfo } from "@/lib/graph-trasformer/transformClickUpToGraph";
 import { getLayoutedElements } from "@/lib/layout";
 import { ClickUpFolder, ClickUpList, ClickUpTask } from "@/types/clickup";
 import { calculateNodeVisibility } from "@/utils/hierarchy";

@@ -17,7 +17,6 @@ export const defaultEdge = (source: string, target: string): AppEdge => ({
     },
 });
 
-
 export function createTaskEdge(sourceId: string, targetId: string, color: string): AppEdge {
     return {
         ...defaultEdge(sourceId, targetId),
