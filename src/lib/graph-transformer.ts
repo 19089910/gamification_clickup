@@ -1,8 +1,8 @@
 import { ClickUpFolder, ClickUpList, ClickUpTask } from '@/types/clickup';
 import { AppNode, AppEdge, NodeState } from '@/types/graph';
 import { getAreaColor } from '@/theme/areas';
-import { getListQuarters, getPrimaryQuarter, getTaskQuarter } from './quarter-resolver';
-import { defaultEdge } from './edge-factory';
+import { getListQuarters, getPrimaryQuarter, getTaskQuarter } from './graph-trasformer/quarter-resolver';
+import { defaultEdge } from './graph-trasformer/edge-factories';
 import { cleanListName, getDefaultCollapsed, getNodeState } from '@/utils/node-utils';
 import { isDevList } from '@/lib/dev-mode';
 import { getTaskVariant } from '@/lib/task-variant';
