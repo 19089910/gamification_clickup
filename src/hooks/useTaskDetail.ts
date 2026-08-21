@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { TaskNodeData } from '@/types/graph';
 import { GraphApiResponse } from '@/hooks/useClickUpData';
-import { getStatusFromConfig } from '@/config/status';
+import { getStatus } from '@/config/status';
 import { TRIMESTRE_FIELD_ID, SEASON_MAP, type Season } from '@/config/quarters';
 import { extractTagsFromName } from '@/utils/label-parser';
 import { getStatusCategory } from '@/lib/status-sync';
@@ -29,7 +29,7 @@ export function useTaskDetail(node: AppNode) {
     const resolvedQuarter = task.quarter && isSeason(task.quarter) ? task.quarter : selectedQuarter;
     setLocalQuarter(resolvedQuarter ?? undefined);
 
-    const statusConfig = getStatusFromConfig(task.status);
+    const statusConfig = getStatus(task.status);
     setLocalStatus(statusConfig?.id || task.status.toLowerCase());
   }, [task.label, task.quarter, task.status, selectedQuarter]);
 
@@ -156,7 +156,7 @@ export function useTaskDetail(node: AppNode) {
     setLocalStatus(newStatusIdOrName);
     setIsSaving(true);
 
-    const statusConfig = getStatusFromConfig(newStatusIdOrName);
+    const statusConfig = getStatus(newStatusIdOrName);
     const newColor = statusConfig?.color || task.statusColor;
     const newLabel = statusConfig?.label.toLowerCase() || newStatusIdOrName;
 

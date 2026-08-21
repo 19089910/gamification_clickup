@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { useTaskDetail } from '@/hooks/useTaskDetail';
 import { InlineNameEditor } from './InlineNameEditor';
 import { TaskNodeData } from '@/types/graph';
-import { STATUS_CONFIG, getStatusFromConfig } from '@/config/status';
+import { getStatusGroups, getStatus } from '@/config/status';
 import { SEASON_CONFIG, getSeasonFromConfig } from '@/config/quarters';
 import { AppNode } from '@/types/graph';
 
@@ -32,7 +32,7 @@ export function TaskDetail({ node }: { node: AppNode }) {
     <>
       <div className="detail-status-container">
         {(() => {
-          const currentConfig = getStatusFromConfig(localStatus);
+          const currentConfig = getStatus(localStatus);
           const displayColor = currentConfig?.color || task.statusColor;
 
           return (
@@ -51,8 +51,8 @@ export function TaskDetail({ node }: { node: AppNode }) {
                 <option value={localStatus}>{localStatus.toUpperCase()}</option>
               )}
 
-              {STATUS_CONFIG.map((group) => (
-                <optgroup key={group.category} label={group.category}>
+              {getStatusGroups().map((group) => (
+                <optgroup key={group.category} label={group.label}>
                   {group.statuses.map((s) => (
                     <option key={s.id} value={s.id} style={{ color: s.color, backgroundColor: '#0d0d0d' }}>
                       {s.label}

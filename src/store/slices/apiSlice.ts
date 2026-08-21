@@ -1,7 +1,7 @@
 import { StateCreator } from 'zustand';
 import { GraphStore, ApiSlice } from '@/types/graph';
 import { fetchApi, updateNodeData, syncSelectedNode } from '../helpers';
-import { getStatusFromConfig } from '@/config/status';
+import { getStatus } from '@/config/status';
 import { AppNode } from '@/types/graph';
 
 export const createApiSlice: StateCreator<GraphStore, [], [], ApiSlice> = (set) => ({
@@ -34,7 +34,7 @@ export const createApiSlice: StateCreator<GraphStore, [], [], ApiSlice> = (set) 
 
       let newColor = targetNode.data.statusColor;
       if (updates.status) {
-        const config = getStatusFromConfig(updates.status);
+        const config = getStatus(updates.status);
         if (config) newColor = config.color;
       }
 

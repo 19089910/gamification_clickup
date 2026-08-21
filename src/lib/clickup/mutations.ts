@@ -1,7 +1,7 @@
 import { ClickUpTask, ClickUpList, ChecklistItemPayload } from '@/types/clickup';
 import { SEASON_MAP, type Season, TRIMESTRE_FIELD_ID } from '@/config/quarters';
 import { BASE_URL, getHeaders } from './api';
-import { getStatusFromConfig } from '@/config/status';
+import { getStatus } from '@/config/status';
 
 export async function createTask(
   listId: string,
@@ -85,7 +85,7 @@ export async function updateTask(
     let labelFallback = '';
 
     if (updates.status) {
-      const config = getStatusFromConfig(updates.status);
+      const config = getStatus(updates.status);
       if (config) {
         statusToSend = config.id;
         labelFallback = config.label.toLowerCase();
