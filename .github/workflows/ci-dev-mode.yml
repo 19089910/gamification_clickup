@@ -1,0 +1,57 @@
+name: "CI/CD: Dev Mode Quality Gates"
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - 'epic/**'
+
+jobs:
+  validate-pr-destination:
+    name: "Validar Destino do PR"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR Base Branch for Sprint Work
+        run: |
+          HEAD_BRANCH="${{ github.head_ref }}"
+          BASE_BRANCH="${{ github.base_ref }}"
+          
+          echo "Branch de Origem (Source): $HEAD_BRANCH"
+          echo "Branch de Destino (Base): $BASE_BRANCH"
+          
+          # Se a branch de origem for uma sub-branch de feature/refactor
+          # e o destino for a main/develop direta, bloqueia o pipeline.
+          if [[ "$HEAD_BRANCH" =~ ^(feat|refactor|fix|style)/task-focus.* ]] && [[ "$BASE_BRANCH" == "main" || "$BASE_BRANCH" == "develop" ]]; then
+            echo "::error::🚨 ERRO DE FLUXO: Branches do ecossistema 'task-focus' devem apontar para a branch 'epic/task-focus' e NÃO para a '$BASE_BRANCH' direta."
+            echo "Por favor, altere a Base Branch deste Pull Request nas configurações do GitHub."
+            exit 1
+          fi
+          
+          echo "✅ Destino de branch validado com sucesso para este escopo."
+
+  commitlint:
+    name: "Validar Conventional Commits"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do Código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar Commitlint
+        run: |
+          npm install --save-dev @commitlint/config-conventional @commitlint/cli
+
+      - name: Criar arquivo de configuração do Commitlint
+        run: |
+          echo "module.exports = { extends: ['@commitlint/config-conventional'] };" > commitlint.config.js
+
+      - name: Validar histórico de commits do PR
+        run: |
+          npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
