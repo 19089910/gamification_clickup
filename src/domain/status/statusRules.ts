@@ -1,37 +1,27 @@
-import { getCategoryByStatus } from '@/config/status';
-import { AppNode, SubtaskNodeData } from '@/types/graph';
+import { STATUS_CONFIG, getCategory, StatusCategory } from '@/config/status';
 
-export interface StatusEvaluationResult {
-    allSiblingsFeito: boolean;
-    newSubtaskCategory: ReturnType<typeof getCategoryByStatus>;
+
+/**
+ * Retorna o ID do status inicial para uma subtask (primeiro da categoria 'not-started').
+ * Fallback para 'planning' se não encontrar.
+ */
+export function getInitialSubtaskStatus(): string {
+  const initial = STATUS_CONFIG.find((item) => item.category === 'not-started');
+  return initial ? initial.id : 'planning';
 }
 
 /**
- * Evaluates the effect of a subtask's status change on its sibling tasks.
+ * Verifica se todas as subtasks filhas estão concluídas (categoria 'done').
  */
-export function evaluateSubtaskStatusChange(
-    subtaskId: string,
-    parentId: string,
-    newStatus: string,
-    fullNodes: AppNode[]
-): StatusEvaluationResult {
-    const newSubtaskCategory = getCategoryByStatus(newStatus);
+export function checkComplete(siblingStatuses: string[]): boolean {
+  if (siblingStatuses.length === 0) return false;
+  return siblingStatuses.every((status) => getCategory(status) === 'done');
+}
 
-    const siblingNodes = fullNodes.filter(
-        (n) => n.type === 'subtask' && (n.data as SubtaskNodeData).parentId === parentId
-    );
-
-    const allSiblingsFeito = siblingNodes.every((n) => {
-        const currentStatus =
-            n.id === `subtask-${subtaskId}`
-                ? newStatus
-                : (n.data as SubtaskNodeData).status;
-
-        return getCategoryByStatus(currentStatus) === 'Feito';
-    });
-
-    return {
-        allSiblingsFeito,
-        newSubtaskCategory,
-    };
+/**
+ * Regra: Determina se a alteração do status da Task Pai exige atualização das subtasks.
+ * Retorna true quando a Task Pai assume qualquer status da categoria 'active'.
+ */
+export function shouldUpdateSubtasksOnParentStatusChange(newParentStatus: string): boolean {
+  return getCategory(newParentStatus) === 'active';
 }
