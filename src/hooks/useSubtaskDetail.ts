@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { AppNode, SubtaskNodeData } from '@/types/graph';
@@ -7,10 +7,16 @@ import { getStatusFromConfig } from '@/config/status';
 import { saveChecklistMutation, toggleTimerMutation } from '@/lib/clickup/mutations';
 import { ChecklistItemPayload } from '@/types/clickup';
 
-export function useSubtaskDetail(node: AppNode) {
-  // substituir a desestruturação atual por seletores individuais
+// 1. Importando o primeiro sub-hook refatorado
+import { useSubtaskName } from './subtask/useSubtaskName';
 
-  const updateTask = useGraphStore(s => s.updateTask);
+export function useSubtaskDetail(node: AppNode) {
+  const subtask = node.data as SubtaskNodeData;
+
+  // --- SUB-HOOK: NOME ---
+  const nameState = useSubtaskName(node);
+
+  // --- OUTRAS DEPENDÊNCIAS DO STORE ---
   const setSidebarOpen = useGraphStore(s => s.setSidebarOpen);
   const activeTimerTaskId = useGraphStore(s => s.activeTimerTaskId);
   const additionalMs = useGraphStore(s => s.additionalMs);
@@ -19,13 +25,10 @@ export function useSubtaskDetail(node: AppNode) {
   const stopTimer = useGraphStore(s => s.stopTimer);
 
   const queryClient = useQueryClient();
-  const subtask = node.data as SubtaskNodeData;
 
-  // --- ESTADOS DA TASK GERAL ---
-  const [localName, setLocalName] = useState(subtask.label as string);
+  // --- ESTADOS DE STATUS ---
   const [localStatus, setLocalStatus] = useState<string>('');
-  const [isSaving, setIsSaving] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
 
   // --- ESTADOS DO TIMER ---
   const [isSavingTimer, setIsSavingTimer] = useState(false);
@@ -46,9 +49,8 @@ export function useSubtaskDetail(node: AppNode) {
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
   const [newItemName, setNewItemName] = useState('');
 
-  // Sincroniza estados quando o nó mudar
+  // Sincroniza estados residuais quando o nó mudar
   useEffect(() => {
-    setLocalName(subtask.label as string);
     const statusConfig = getStatusFromConfig(subtask.status);
     setLocalStatus(statusConfig?.id || subtask.status.toLowerCase());
     setItems(getInitialChecklistItems());
@@ -57,56 +59,11 @@ export function useSubtaskDetail(node: AppNode) {
 
   const isChecklistDirty = pendingItems.length > 0;
 
-  // --- HANDLERS DO NOME ---
-  const handleSaveName = async () => {
-    if (!localName.trim() || localName === subtask.label) return;
-
-    const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
-    const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
-
-    setIsSaving(true);
-    try {
-      queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
-        if (!oldData) return oldData;
-        const newListTasksMap = { ...oldData.listTasksMap };
-        for (const listId in newListTasksMap) {
-          const idx = newListTasksMap[listId].findIndex(t => t.id === subtask.taskId);
-          if (idx !== -1) {
-            newListTasksMap[listId][idx] = { ...newListTasksMap[listId][idx], name: localName };
-            break;
-          }
-        }
-        return { ...oldData, listTasksMap: newListTasksMap };
-      });
-
-      useGraphStore.setState(state => ({
-        fullNodes: state.fullNodes.map(n =>
-          n.id === `subtask-${subtask.taskId}`
-            ? { ...n, data: { ...n.data, label: localName } } as AppNode
-            : n
-        ),
-      }));
-
-      await updateTask(subtask.taskId as string, { name: localName });
-    } catch (err) {
-      console.error('Failed to update subtask name:', err);
-      if (previousData) queryClient.setQueryData(queryKey, previousData);
-      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleTaskKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') { e.preventDefault(); await handleSaveName(); }
-    if (e.key === 'Escape') setSidebarOpen(false);
-  };
-
   // --- HANDLER DE STATUS ---
   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newStatus = e.target.value;
     setLocalStatus(newStatus);
-    setIsSaving(true);
+    setIsSavingStatus(true);
 
     const parentId = subtask.parentId;
     const subtaskId = subtask.taskId;
@@ -184,13 +141,13 @@ export function useSubtaskDetail(node: AppNode) {
         return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
       });
 
-      await updateTask(subtaskId, { status: newStatus });
+      await useGraphStore.getState().updateTask(subtaskId as string, { status: newStatus });
     } catch (err) {
       console.error('Failed to update subtask status:', err);
       if (previousData) queryClient.setQueryData(queryKey, previousData);
       queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
     } finally {
-      setIsSaving(false);
+      setIsSavingStatus(false);
     }
   };
 
@@ -274,13 +231,10 @@ export function useSubtaskDetail(node: AppNode) {
   };
 
   return {
-    localName,
-    setLocalName,
+    ...nameState,
+
     localStatus,
-    isSaving,
-    inputRef,
-    handleTaskKeyDown,
-    handleStatusChange,
+    isSaving: nameState.isSavingName || isSavingStatus,
 
     items,
     newItemName,
