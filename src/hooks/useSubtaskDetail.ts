@@ -2,22 +2,21 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { AppNode, SubtaskNodeData } from '@/types/graph';
-import { GraphApiResponse } from '@/hooks/useClickUpData';
-import { getStatusFromConfig } from '@/config/status';
 import { saveChecklistMutation, toggleTimerMutation } from '@/lib/clickup/mutations';
 import { ChecklistItemPayload } from '@/types/clickup';
 
-// 1. Importando o primeiro sub-hook refatorado
+// 1. Sub-hooks refatorados
 import { useSubtaskName } from './subtask/useSubtaskName';
+import { useSubtaskStatus } from './subtask/useSubtaskStatus';
 
 export function useSubtaskDetail(node: AppNode) {
   const subtask = node.data as SubtaskNodeData;
 
-  // --- SUB-HOOK: NOME ---
+  // --- SUB-HOOKS ---
   const nameState = useSubtaskName(node);
+  const statusState = useSubtaskStatus(node);
 
   // --- OUTRAS DEPENDÊNCIAS DO STORE ---
-  const setSidebarOpen = useGraphStore(s => s.setSidebarOpen);
   const activeTimerTaskId = useGraphStore(s => s.activeTimerTaskId);
   const additionalMs = useGraphStore(s => s.additionalMs);
   const timerBaseMs = useGraphStore(s => s.timerBaseMs);
@@ -25,10 +24,6 @@ export function useSubtaskDetail(node: AppNode) {
   const stopTimer = useGraphStore(s => s.stopTimer);
 
   const queryClient = useQueryClient();
-
-  // --- ESTADOS DE STATUS ---
-  const [localStatus, setLocalStatus] = useState<string>('');
-  const [isSavingStatus, setIsSavingStatus] = useState(false);
 
   // --- ESTADOS DO TIMER ---
   const [isSavingTimer, setIsSavingTimer] = useState(false);
@@ -49,107 +44,13 @@ export function useSubtaskDetail(node: AppNode) {
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
   const [newItemName, setNewItemName] = useState('');
 
-  // Sincroniza estados residuais quando o nó mudar
+  // Sincroniza estados residuais de checklist quando o nó mudar
   useEffect(() => {
-    const statusConfig = getStatusFromConfig(subtask.status);
-    setLocalStatus(statusConfig?.id || subtask.status.toLowerCase());
     setItems(getInitialChecklistItems());
     setPendingItems([]);
-  }, [subtask.label, subtask.status, subtask.checklists]);
+  }, [subtask.checklists]);
 
   const isChecklistDirty = pendingItems.length > 0;
-
-  // --- HANDLER DE STATUS ---
-  const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newStatus = e.target.value;
-    setLocalStatus(newStatus);
-    setIsSavingStatus(true);
-
-    const parentId = subtask.parentId;
-    const subtaskId = subtask.taskId;
-    const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
-    const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
-
-    try {
-      const { fullNodes } = useGraphStore.getState();
-
-      const siblingNodes = fullNodes.filter(
-        (n) => n.type === 'subtask' && (n.data as SubtaskNodeData).parentId === parentId
-      );
-
-      const allSiblingsComplete = siblingNodes.every((n) => {
-        if (n.id === `subtask-${subtaskId}`) return newStatus === 'complete';
-        return (n.data as SubtaskNodeData).status.toLowerCase() === 'complete';
-      });
-
-      // 1. Optimistic Update no Zustand
-      useGraphStore.setState((state) => {
-        const config = getStatusFromConfig(newStatus);
-        let updatedFullNodes = state.fullNodes.map((n) => {
-          if (n.id === `subtask-${subtaskId}`) {
-            return { ...n, data: { ...n.data, status: newStatus, statusColor: config?.color || '#999' } } as AppNode;
-          }
-          return n;
-        });
-
-        if (allSiblingsComplete) {
-          const parentConfig = getStatusFromConfig('complete');
-          updatedFullNodes = updatedFullNodes.map((n) => {
-            if (n.id === `task-${parentId}`) {
-              return { ...n, data: { ...n.data, status: 'complete', statusColor: parentConfig?.color || '#0f9d9f' } } as AppNode;
-            }
-            return n;
-          });
-        }
-
-        return {
-          fullNodes: updatedFullNodes,
-          selectedNode: updatedFullNodes.find((n) => n.id === node.id) || null,
-        };
-      });
-
-      // 2. Optimistic Update no React Query cache
-      queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
-        if (!oldData) return oldData;
-        const newListTasksMap = { ...oldData.listTasksMap };
-        let taskFound = false;
-
-        for (const listId in newListTasksMap) {
-          const taskIndex = newListTasksMap[listId].findIndex((t) => t.id === subtaskId);
-          if (taskIndex !== -1) {
-            const config = getStatusFromConfig(newStatus);
-            newListTasksMap[listId][taskIndex] = {
-              ...newListTasksMap[listId][taskIndex],
-              status: { ...newListTasksMap[listId][taskIndex].status, status: config?.id || newStatus, color: config?.color || '#999' },
-            };
-
-            if (allSiblingsComplete) {
-              const parentIndex = newListTasksMap[listId].findIndex((t) => t.id === parentId);
-              if (parentIndex !== -1) {
-                const parentConfig = getStatusFromConfig('complete');
-                newListTasksMap[listId][parentIndex] = {
-                  ...newListTasksMap[listId][parentIndex],
-                  status: { ...newListTasksMap[listId][parentIndex].status, status: 'complete', color: parentConfig?.color || '#0f9d9f' },
-                };
-              }
-            }
-
-            taskFound = true;
-            break;
-          }
-        }
-        return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
-      });
-
-      await useGraphStore.getState().updateTask(subtaskId as string, { status: newStatus });
-    } catch (err) {
-      console.error('Failed to update subtask status:', err);
-      if (previousData) queryClient.setQueryData(queryKey, previousData);
-      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
-    } finally {
-      setIsSavingStatus(false);
-    }
-  };
 
   // --- HANDLERS DO CHECKLIST ---
   const handleAddItemLocal = () => {
@@ -232,9 +133,9 @@ export function useSubtaskDetail(node: AppNode) {
 
   return {
     ...nameState,
+    ...statusState,
 
-    localStatus,
-    isSaving: nameState.isSavingName || isSavingStatus,
+    isSaving: nameState.isSavingName || statusState.isSavingStatus,
 
     items,
     newItemName,
