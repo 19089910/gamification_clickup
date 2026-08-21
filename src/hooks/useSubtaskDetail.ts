@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { AppNode, SubtaskNodeData } from '@/types/graph';
-import { saveChecklistMutation, toggleTimerMutation } from '@/lib/clickup/mutations';
-import { ChecklistItemPayload } from '@/types/clickup';
+import { toggleTimerMutation } from '@/lib/clickup/mutations';
 
 // 1. Sub-hooks refatorados
 import { useSubtaskName } from './subtask/useSubtaskName';
 import { useSubtaskStatus } from './subtask/useSubtaskStatus';
+import { useSubtaskChecklist } from './subtask/useSubtaskChecklist';
 
 export function useSubtaskDetail(node: AppNode) {
   const subtask = node.data as SubtaskNodeData;
@@ -15,8 +15,9 @@ export function useSubtaskDetail(node: AppNode) {
   // --- SUB-HOOKS ---
   const nameState = useSubtaskName(node);
   const statusState = useSubtaskStatus(node);
+  const checklistState = useSubtaskChecklist(node);
 
-  // --- OUTRAS DEPENDÊNCIAS DO STORE ---
+  // --- DEPENDÊNCIAS DO TIMER ---
   const activeTimerTaskId = useGraphStore(s => s.activeTimerTaskId);
   const additionalMs = useGraphStore(s => s.additionalMs);
   const timerBaseMs = useGraphStore(s => s.timerBaseMs);
@@ -28,82 +29,6 @@ export function useSubtaskDetail(node: AppNode) {
   // --- ESTADOS DO TIMER ---
   const [isSavingTimer, setIsSavingTimer] = useState(false);
   const isTimerActive = activeTimerTaskId === subtask.taskId;
-
-  // --- ESTADOS DO CHECKLIST ---
-  const getInitialChecklistItems = (): ChecklistItemPayload[] => {
-    return (subtask.checklists || []).flatMap((checklist) =>
-      checklist.items.map((item) => ({
-        ...item,
-        checklistId: checklist.id,
-      }))
-    );
-  };
-
-  const [items, setItems] = useState<ChecklistItemPayload[]>(getInitialChecklistItems());
-  const [pendingItems, setPendingItems] = useState<ChecklistItemPayload[]>([]);
-  const [isSavingChecklist, setIsSavingChecklist] = useState(false);
-  const [newItemName, setNewItemName] = useState('');
-
-  // Sincroniza estados residuais de checklist quando o nó mudar
-  useEffect(() => {
-    setItems(getInitialChecklistItems());
-    setPendingItems([]);
-  }, [subtask.checklists]);
-
-  const isChecklistDirty = pendingItems.length > 0;
-
-  // --- HANDLERS DO CHECKLIST ---
-  const handleAddItemLocal = () => {
-    if (!newItemName.trim()) return;
-    const defaultChecklistId = subtask.checklists?.[0]?.id || '';
-    const newItem: ChecklistItemPayload = {
-      id: `temp-item-${Date.now()}`,
-      name: newItemName.trim(),
-      resolved: false,
-      checklistId: defaultChecklistId,
-      isNew: true,
-    };
-    setItems((prev) => [...prev, newItem]);
-    setPendingItems((prev) => [...prev, newItem]);
-    setNewItemName('');
-  };
-
-  const handleCheckboxChange = (itemId: string, checked: boolean) => {
-    setItems((prevItems) =>
-      prevItems.map((item) => {
-        if (item.id !== itemId) return item;
-        const updated = { ...item, resolved: checked };
-        setPendingItems((prev) => [...prev.filter((p) => p.id !== itemId), updated]);
-        return updated;
-      })
-    );
-  };
-
-  const handleNameChange = (itemId: string, name: string) => {
-    setItems((prevItems) =>
-      prevItems.map((item) => {
-        if (item.id !== itemId) return item;
-        const updated = { ...item, name };
-        setPendingItems((prev) => [...prev.filter((p) => p.id !== itemId), updated]);
-        return updated;
-      })
-    );
-  };
-
-  const handleSaveChecklist = async () => {
-    setIsSavingChecklist(true);
-    const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
-    try {
-      await saveChecklistMutation(subtask.taskId, pendingItems);
-      setPendingItems([]);
-      queryClient.invalidateQueries({ queryKey });
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao salvar o checklist. Tente novamente.');
-    } finally {
-      setIsSavingChecklist(false);
-    }
-  };
 
   // --- HANDLER DO TIMER ---
   const handleToggleTimer = async () => {
@@ -134,18 +59,9 @@ export function useSubtaskDetail(node: AppNode) {
   return {
     ...nameState,
     ...statusState,
+    ...checklistState,
 
     isSaving: nameState.isSavingName || statusState.isSavingStatus,
-
-    items,
-    newItemName,
-    setNewItemName,
-    isSavingChecklist,
-    isChecklistDirty,
-    handleAddItemLocal,
-    handleCheckboxChange,
-    handleNameChange,
-    handleSaveChecklist,
 
     isTimerActive,
     isSavingTimer,
