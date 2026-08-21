@@ -10,6 +10,12 @@ export interface StatusItem {
   category: StatusCategory;
 }
 
+export interface StatusGroup {
+  category: StatusCategory;
+  label: string;
+  statuses: StatusItem[];
+}
+
 export const STATUS_CONFIG: StatusItem[] = [
   {
     id: 'planning',
@@ -69,4 +75,23 @@ export function getStatus(statusAttr: string): StatusItem | null {
 export function getCategory(statusAttr: string): StatusCategory | null {
   const item = getStatus(statusAttr);
   return item ? item.category : null;
+}
+
+/**
+ * Agrupa a lista plana de STATUS_CONFIG por categoria para uso em selects (<optgroup>)
+ */
+export function getStatusGroups(): StatusGroup[] {
+  const categoryLabels: Record<StatusCategory, string> = {
+    'not-started': 'Não Iniciado',
+    'active': 'Em Andamento',
+    'done': 'Concluído',
+  };
+
+  const categories: StatusCategory[] = ['not-started', 'active', 'done'];
+
+  return categories.map((cat) => ({
+    category: cat,
+    label: categoryLabels[cat] || cat,
+    statuses: STATUS_CONFIG.filter((item) => item.category === cat),
+  }));
 }
