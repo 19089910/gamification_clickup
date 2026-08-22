@@ -158,12 +158,6 @@ export interface UiSlice {
   isSidebarOpen: boolean;
   selectedQuarter: Quarter | null;
   layoutSettings: LayoutSettings;
-  editTaskModal: {
-    isOpen: boolean;
-    taskId: string;
-    name: string;
-    quarter: string;
-  };
   quarterPickerModal: {
     isOpen: boolean;
     listName: string;
@@ -175,7 +169,6 @@ export interface UiSlice {
   setSidebarOpen: (open: boolean) => void;
   setQuarter: (q: Quarter | null) => void;
   updateLayoutSettings: (settings: Partial<LayoutSettings>) => void;
-  setEditTaskModal: (data: Partial<UiSlice['editTaskModal']>) => void;
   setQuarterPickerModal: (data: Partial<UiSlice['quarterPickerModal']>) => void;
 }
 
