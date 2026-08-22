@@ -48,3 +48,7 @@ export async function fetchApi<T>(
     throw error;
   }
 }
+
+export function cleanClickUpId(id: string): string {
+  return id.replace(/^(space|folder|list|task)-/, '');
+}

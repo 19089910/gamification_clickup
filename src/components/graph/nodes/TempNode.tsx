@@ -1,26 +1,55 @@
 "use client";
 
-import React, { memo, useCallback } from "react";
+import React, { memo, useCallback, useState } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { TempNode as TempNodeType } from "@/types/graph";
+import { useGraphStore } from "@/store/graphStore";
+import { TempNodeData } from "@/types/graph";
 
-const TempNode = memo<NodeProps<TempNodeType>>(({ id, data }) => {
-  const isForList = data.parentType === 'folder';
-  const isForSubtask = data.parentType === 'task'
+const TempNode = memo<NodeProps>(({ id, data }) => {
+  const nodeData = data as TempNodeData;
+  const [name, setName] = useState('');
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      const name = (e.target as HTMLInputElement).value.trim();
-      if (!name) return;
-      // Dispatch a custom event that GraphCanvas listens to
-      const event = new CustomEvent('tempnode:commit', { detail: { nodeId: id, name } });
-      window.dispatchEvent(event);
+  const isForList = nodeData.parentType === 'folder';
+  const isForSubtask = nodeData.parentType === 'task';
+
+  const commitTempNode = useGraphStore((state) => state.commitTempNode);
+  const removeTempNode = useGraphStore((state) => state.removeTempNode);
+  const setQuarterPickerModal = useGraphStore((state) => state.setQuarterPickerModal);
+
+  const handleCommit = useCallback(() => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      removeTempNode(id);
+      return;
     }
-    if (e.key === 'Escape') {
-      const event = new CustomEvent('tempnode:cancel', { detail: { nodeId: id } });
-      window.dispatchEvent(event);
+
+    // Se estiver criando uma Lista dentro de uma Pasta, abre o Modal para escolher o Quarter
+    if (isForList) {
+      setQuarterPickerModal({
+        isOpen: true,
+        listName: trimmedName,
+        folderId: nodeData.parentId,
+        tempNodeId: id,
+      });
+      return;
     }
-  }, [id]);
+
+    // Para Tarefas e Subtarefas, efetiva diretamente passando (id, name, quarter)
+    commitTempNode(id, trimmedName, null);
+  }, [id, name, isForList, nodeData.parentId, commitTempNode, removeTempNode, setQuarterPickerModal]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleCommit();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        removeTempNode(id);
+      }
+    },
+    [handleCommit, removeTempNode, id]
+  );
 
   return (
     <div className={`temp-node ${isForList ? 'temp-list' : 'temp-task'}`}>
@@ -29,6 +58,8 @@ const TempNode = memo<NodeProps<TempNodeType>>(({ id, data }) => {
       <input
         className="temp-node-input"
         autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
         placeholder={isForList ? 'Nome da lista...' : isForSubtask ? 'Nome da subtask...' : 'Nome da task...'}
         onKeyDown={handleKeyDown}
         onClick={(e) => e.stopPropagation()}

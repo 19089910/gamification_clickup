@@ -1,32 +1,78 @@
 import { StateCreator } from 'zustand';
-import { GraphStore, ApiSlice } from '@/types/graph';
-import { fetchApi, updateNodeData, syncSelectedNode } from '../helpers';
+import { GraphStore, ApiSlice, AppNode, AppEdge, SubtaskNode } from '@/types/graph';
+import { fetchApi, updateNodeData, syncSelectedNode, cleanClickUpId } from '../helpers';
 import { getStatusFromConfig } from '@/config/status';
-import { AppNode } from '@/types/graph';
 
-export const createApiSlice: StateCreator<GraphStore, [], [], ApiSlice> = (set) => ({
+export const createApiSlice: StateCreator<GraphStore, [], [], ApiSlice> = (set, get) => ({
   createTask: (listId, name, quarter) => {
+    const cleanId = cleanClickUpId(listId);
     return fetchApi('/api/clickup/tasks', {
       method: 'POST',
-      body: JSON.stringify({ listId, name, quarter }),
+      body: JSON.stringify({ listId: cleanId, name, quarter }),
     }, set);
   },
 
   createList: (folderId, name, quarter) => {
+    const cleanId = cleanClickUpId(folderId);
     return fetchApi('/api/clickup/lists', {
       method: 'POST',
-      body: JSON.stringify({ folderId, name, quarter }),
+      body: JSON.stringify({ folderId: cleanId, name, quarter }),
     }, set);
   },
 
-  // Adicione o listId na assinatura
-  createSubtask: (parentTaskId: string, name: string) => {
-    // Mudamos a rota para encaixar perfeitamente na árvore de pastas:
-    return fetchApi(`/api/clickup/tasks/${parentTaskId}/subtasks`, {
+  createSubtask: async (parentTaskId: string, name: string) => {
+    const cleanId = cleanClickUpId(parentTaskId);
+
+    // 1. Faz o POST para o ClickUp
+    const res = await fetchApi<any>(`/api/clickup/tasks/${cleanId}/subtasks`, {
       method: 'POST',
       body: JSON.stringify({ name }),
     }, set);
+
+    if (res) {
+      const parentNode = get().fullNodes.find(n => n.id === parentTaskId || n.id === `task-${cleanId}`);
+      const parentX = parentNode?.position.x ?? 0;
+      const parentY = parentNode?.position.y ?? 0;
+
+      const fullParentId = parentTaskId.startsWith('task-') ? parentTaskId : `task-${parentTaskId}`;
+      const newSubtaskId = `task-${res.id || res.task?.id}`;
+
+      // 2. Cria o novo nó estritamente compátivel com SubtaskNodeData
+      const newSubtaskNode: AppNode = {
+        id: newSubtaskId,
+        type: 'subtask',
+        position: { x: parentX + 250, y: parentY + 50 },
+        data: {
+          label: res.name || name,
+          taskId: cleanId,
+          parentId: fullParentId,
+          status: res.status?.status || 'open',
+          statusColor: res.status?.color || '#555',
+          state: 'active',
+          collapsed: false,
+          url: res.url || undefined,
+        },
+      };
+
+      // 3. Cria a aresta de conexão (edge)
+      const newEdge: AppEdge = {
+        id: `e-${fullParentId}-${newSubtaskId}`,
+        source: fullParentId,
+        target: newSubtaskId,
+      };
+
+      // 4. Injeta imediatamente na árvore do React Flow
+      set((state) => ({
+        fullNodes: [...state.fullNodes, newSubtaskNode],
+        nodes: [...state.nodes, newSubtaskNode],
+        fullEdges: [...state.fullEdges, newEdge],
+        edges: [...state.edges, newEdge],
+      }));
+    }
+
+    return res;
   },
+
   updateTask: async (taskId, updates) => {
     set((state) => {
       const targetNode = state.fullNodes.find(n => n.id === `task-${taskId}` || n.id === `subtask-${taskId}`);

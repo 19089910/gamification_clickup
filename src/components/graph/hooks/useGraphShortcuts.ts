@@ -13,6 +13,7 @@ export function useGraphShortcuts() {
     const setSelectedNode = useGraphStore((state) => state.setSelectedNode);
     const addTempNode = useGraphStore((state) => state.addTempNode);
     const toggleNodeCollapsed = useGraphStore((state) => state.toggleNodeCollapsed);
+    const fullNodes = useGraphStore((state) => state.fullNodes);
 
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent) => {
@@ -20,25 +21,24 @@ export function useGraphShortcuts() {
 
             const parentType = selectedNode.type;
 
-            // Valida se o nó selecionado aceita nós filhos temporários
             if (!parentType || !isTempNodeParent(parentType)) {
                 return;
             }
 
             e.preventDefault();
 
-            // 1. Se o pai está colapsado, expande ele primeiro para o tempNode ficar visível
-            if (selectedNode.data.collapsed) {
-                toggleNodeCollapsed(selectedNode.id, parentType);
+            // Busca o nó real com a posição atualizada no canvas
+            const actualParent = fullNodes.find((n) => n.id === selectedNode.id) || selectedNode;
+
+            if (actualParent.data.collapsed) {
+                toggleNodeCollapsed(actualParent.id);
             }
 
-            // 2. Remove a seleção atual
+            // Remove a seleção e adiciona o nó temporário no pai correto
             setSelectedNode(null);
-
-            // 3. Adiciona o nó temporário apontando para o pai
-            addTempNode(selectedNode.id, parentType);
+            addTempNode(actualParent.id, parentType);
         },
-        [selectedNode, setSelectedNode, addTempNode, toggleNodeCollapsed]
+        [selectedNode, setSelectedNode, addTempNode, toggleNodeCollapsed, fullNodes]
     );
 
     return { handleKeyDown };
