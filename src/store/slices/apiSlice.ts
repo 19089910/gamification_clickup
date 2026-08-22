@@ -35,16 +35,19 @@ export const createApiSlice: StateCreator<GraphStore, [], [], ApiSlice> = (set, 
       const parentY = parentNode?.position.y ?? 0;
 
       const fullParentId = parentTaskId.startsWith('task-') ? parentTaskId : `task-${parentTaskId}`;
-      const newSubtaskId = `task-${res.id || res.task?.id}`;
 
-      // 2. Cria o novo nó estritamente compátivel com SubtaskNodeData
+      // ATENÇÃO AQUI: Use o prefixo 'subtask-' em vez de 'task-'
+      const rawId = res.id || res.task?.id;
+      const newSubtaskId = `subtask-${rawId}`;
+
+      // 2. Monta o nó com o ID e tipo idênticos ao que o Transformer/GET gera
       const newSubtaskNode: AppNode = {
         id: newSubtaskId,
         type: 'subtask',
-        position: { x: parentX + 250, y: parentY + 50 },
+        position: { x: parentX + 280, y: parentY },
         data: {
           label: res.name || name,
-          taskId: cleanId,
+          taskId: rawId, // ID limpo do ClickUp
           parentId: fullParentId,
           status: res.status?.status || 'open',
           statusColor: res.status?.color || '#555',
@@ -54,14 +57,14 @@ export const createApiSlice: StateCreator<GraphStore, [], [], ApiSlice> = (set, 
         },
       };
 
-      // 3. Cria a aresta de conexão (edge)
+      // 3. Monta a aresta (edge) com a nova convenção do id
       const newEdge: AppEdge = {
         id: `e-${fullParentId}-${newSubtaskId}`,
         source: fullParentId,
         target: newSubtaskId,
       };
 
-      // 4. Injeta imediatamente na árvore do React Flow
+      // 4. Injeta no estado do Zustand
       set((state) => ({
         fullNodes: [...state.fullNodes, newSubtaskNode],
         nodes: [...state.nodes, newSubtaskNode],
