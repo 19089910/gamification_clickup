@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useClickUpData } from '@/hooks/useClickUpData';
-import { useGraphStore, Quarter } from '@/store/graphStore';
+import { useGraphStore, Season } from '@/store/graphStore';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import { SEASON_BG } from '@/config/quarters';
 
@@ -90,7 +90,7 @@ function MapView() {
 
         <select
           value={selectedQuarter || 'SUMMER'}
-          onChange={(e) => setQuarter(e.target.value as Quarter)}
+          onChange={(e) => setQuarter(e.target.value as Season)}
           style={{
             padding: '4px 8px',
             background: '#161616',

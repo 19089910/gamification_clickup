@@ -5,11 +5,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { GraphApiResponse } from '@/types/clickup';
 import { SEASON_CONFIG } from '@/config/quarters';
+import { Season } from '@/types/graph';
 
 export default function QuarterPickerModal() {
   const { quarterPickerModal, setQuarterPickerModal, createList } = useGraphStore();
   const queryClient = useQueryClient();
-  const [selectedQ, setSelectedQ] = useState<string>('SUMMER');
+  const [selectedQ, setSelectedQ] = useState<Season>('SUMMER');
   const [isSaving, setIsSaving] = useState(false);
 
   if (!quarterPickerModal.isOpen) return null;

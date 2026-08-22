@@ -4,10 +4,10 @@ import { useGraphStore } from '@/store/graphStore';
 import { TaskNodeData } from '@/types/graph';
 import { GraphApiResponse } from '@/types/clickup';
 import { getStatusFromConfig } from '@/config/status';
-import { TRIMESTRE_FIELD_ID, SEASON_MAP, type Season } from '@/config/quarters';
+import { TRIMESTRE_FIELD_ID, SEASON_MAP } from '@/config/quarters';
 import { extractTagsFromName } from '@/utils/label-parser';
 import { getStatusCategory } from '@/lib/status-sync';
-import { SubtaskNodeData, AppNode } from '@/types/graph';
+import { SubtaskNodeData, AppNode, Season } from '@/types/graph';
 
 export function useTaskDetail(node: AppNode) {
   const { updateTask, selectedQuarter, setSidebarOpen, updateNodeTags } = useGraphStore();

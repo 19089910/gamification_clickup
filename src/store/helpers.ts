@@ -1,7 +1,7 @@
 import { AppNode } from '@/types/graph';
-import { Quarter } from '@/types/graph';
+import { Season } from '@/types/graph';
 
-export function getCurrentQuarter(): Quarter {
+export function getCurrentQuarter(): Season {
   const month = new Date().getMonth() + 1; // 1-12
   if (month <= 3) return 'SUMMER';
   if (month <= 6) return 'FALL';
@@ -15,8 +15,8 @@ export function syncSelectedNode(selectedNode: AppNode | null, nodes: AppNode[])
 }
 
 export function updateNodeData(nodes: AppNode[], id: string, dataUpdates: Partial<AppNode['data']>): AppNode[] {
-  return nodes.map((node) => 
-    node.id === id 
+  return nodes.map((node) =>
+    node.id === id
       ? { ...node, data: { ...node.data, ...dataUpdates } } as AppNode
       : node
   );
@@ -33,7 +33,7 @@ export async function fetchApi<T>(
       ...options,
       headers: { 'Content-Type': 'application/json', ...options.headers },
     });
-    
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Request failed' }));
       throw new Error(err.error || 'Request failed');
