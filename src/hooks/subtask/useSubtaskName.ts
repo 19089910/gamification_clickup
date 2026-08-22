@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { AppNode, SubtaskNodeData } from '@/types/graph';
-import { GraphApiResponse } from '@/hooks/useClickUpData';
+import { GraphApiResponse } from '@/types/clickup'
 
 export function useSubtaskName(node: AppNode) {
     const subtask = node.data as SubtaskNodeData;
