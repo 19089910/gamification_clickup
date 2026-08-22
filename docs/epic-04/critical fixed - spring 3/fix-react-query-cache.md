@@ -1,61 +1,82 @@
-# Relatório Técnico — Refatoração da Arquitetura de Estado e Sincronização do Canvas
+# Relatório Técnico — Arquitetura de Estado, Fluxo de Dados e Grafo Canvas
 
 **Projeto:** Gerenciador de Projetos / Canvas React Flow
 
-**Objetivo:** Eliminação de acoplamento, glitches de posicionamento, arquivos/serviços órfãos e inconsistências de estado
+**Objetivo:** Guia arquitetural da aplicação, especificação da estrutura de tipos (`AppNode`) e ciclo de vida de mutações
 
-**Arquitetura principal:** React + React Flow + Zustand + React Query + ClickUp API
-
----
-
-## 1. Objetivo da Refatoração
-
-Este relatório documenta a revisão do plano de arquitetura para a simplificação do fluxo de dados e mutação do grafo no canvas.
-
-A principal decisão arquitetural é a **adoção estrita do Fluxo A**: o **Zustand (`GraphStore`) assume a responsabilidade como fonte única da verdade para a interface e para o estado visual do grafo (`fullNodes` e `fullEdges`)**, enquanto o React Query permanece estritamente como mecanismo de fetch inicial, invalidação e revalidação de dados em plano de fundo.
-
-Com essa definição:
-
-* **Elimina-se o serviço `graphCacheSync**`: Não haverá manipulador atômico paralelo no cache do React Query, evitando race conditions, divergência entre o grafo transformado e o JSON bruto da API, e código redundante.
-* **Remove-se o `EditTaskModal` e o estado `editTaskModal**`: A edição de tarefas passa a ser realizada 100% inline via `TaskDetail` (painel lateral) utilizando as ações da `ApiSlice` no Zustand.
-* **Preserva-se o layout visual**: Operações locais e mutações otimistas acontecem diretamente na Store do Zustand, evitando reconstruções desnecessárias via `buildGraph()` e descartando o refetch a menos que ocorram erros HTTP.
+**Stack Principal:** React + React Flow (@xyflow/react) + Zustand + React Query + ClickUp API
 
 ---
 
-## 2. Problemas da Arquitetura Anterior e Aprendizados
+## 1. Visão Geral e Princípios Arquiteturais
 
-A tentativa anterior de implementar o `graphCacheSync` gerava duas fontes de verdade competindo entre si:
+A aplicação gerencia um grafo hierárquico complexo que reflete os dados do ClickUp (Space $\rightarrow$ Folder $\rightarrow$ List $\rightarrow$ Task $\rightarrow$ Subtask). A arquitetura foi desenhada com base em **cinco pilares fundamentais**:
+
+1. **Fonte Única da Verdade para Renderização:** A store Zustand (`GraphStore`) é a proprietária absoluta do estado visual e posicional do grafo (`fullNodes` e `fullEdges`).
+2. **Separação Rígida de Responsabilidades (Slices):** A store é modularizada em fatias bem delimitadas (`CoreSlice`, `UiSlice`, `ApiSlice`, `HierarchySlice`, `DevSlice`, `TempNodeSlice`).
+3. **Fluxo Unidirecional de Dados:** A interface interage com as ações do Zustand, que atualizam otimisticamente os nós visíveis e lidam com as chamadas de I/O em background.
+4. **Isolamento do React Query:** O React Query cuida exclusivamente do carregamento inicial de dados brutos e do controle de refetches/invalidação.
+5. **Layout Previsível Sem Glitches:** Alterações de estado locais não reconstroem a árvore completa, preservando posições espaciais e a ordenação dos trimestres.
+
+---
+
+## 2. Modelo de Tipos do Grafo (`AppNode` & Subtipos)
+
+O grafo utiliza **Discriminated Unions** para tipar os nós do React Flow com base no atributo `type`. Cada tipo de nó possui uma estrutura de dados (`data`) estritamente definida:
+
+### 2.1. Hierarquia de Tipos (`src/types/graph.ts`)
 
 ```text
-               ┌──────────────────────────────┐
-               │    Operação do Usuário       │
-               └──────────────┬───────────────┘
-                              │
-               ┌──────────────┴──────────────┐
-               ▼                             ▼
-  ┌──────────────────────────┐  ┌──────────────────────────┐
-  │      Zustand Store       │  │      graphCacheSync      │
-  │  (fullNodes / fullEdges) │  │   (React Query Cache)    │
-  └────────────┬─────────────┘  └────────────┬─────────────┘
-               │                             │
-               └──────────────┬──────────────┘
-                              ▼
-                     [ Race Conditions & ]
-                     [ Layout Redundant  ]
+               ┌───────────────────────────────────────────────────┐
+               │                      AppNode                      │
+               └─────────────────────────┬─────────────────────────┘
+                                         │
+    ┌──────────────┬──────────────┬──────┴───────┬──────────────┬──────────────┐
+    ▼              ▼              ▼              ▼              ▼              ▼
+SpaceNode     FolderNode     ListNode       TaskNode       SubtaskNode    TempNode
+('space')     ('folder')     ('list')       ('task')       ('subtask')    ('temp')
 
 ```
 
-### Gargalos Identificados:
+### 2.2. Mapeamento dos Dados dos Nós (`NodeData`)
 
-* **Sincronização Dupla Inútil:** O React Query armazenava a resposta bruta do ClickUp (`GraphApiResponse`), que precisava ser re-transformada para nós do React Flow, enquanto o Zustand já mantinha os nós no estado (`fullNodes`). Sincronizar o cache do React Query em paralelo gerava re-renders duplicados e inconsistências temporárias.
-* **Eventos Globais Legados:** O uso de `window.dispatchEvent("tempnode:commit")` criava dependências ocultas e dificultava o rastreamento do ciclo de vida dos nós temporários.
-* **Modais Órfãos:** Telas como o `EditTaskModal` acumulavam estados no Zustand sem que existisse ponto de entrada real na interface, gerando código morto.
+* **`SpaceNodeData`**: Representa o topo da hierarquia. Armazena `spaceId`, cor e estado de colapso.
+* **`FolderNodeData`**: Nó agrupador. Contém `folderId`, contadores de listas/tarefas, vínculo com o `parentId` (Space) e estado de expansão.
+* **`ListNodeData`**: Nó de lista. Mapeia `listId`, vínculo com `parentId` (Folder), cor atribuída a partir de `LIST_COLORS`, e informações de trimestres (`quarters`, `primaryQuarter`).
+* **`TaskNodeData`**: Entidade principal de tarefa. Contém `taskId`, vínculo com `parentId` (List), `status`, `statusColor`, `priority`, `assignees`, `tags`, e o trimestre resolvido (`quarter`).
+* **`SubtaskNodeData`**: Entidade de subtarefa vinculada a uma `TaskNode` (`parentId`). Armazena `time_spent` e `checklists`.
+* **`TempNodeData`**: Nó rascunho temporário no canvas. Armazena o tipo de pai que o gerou (`parentType: 'folder' | 'list' | 'task'`) e o `parentId`.
 
 ---
 
-## 3. Arquitetura Proposta: Fluxo A (Zustand-Centric)
+## 3. Arquitetura da Store Global (`GraphStore`)
 
-A nova arquitetura estabelece um fluxo unidirecional rígido e direto.
+A `GraphStore` unifica múltiplos domínios funcionais em uma única interface usando o padrão de fatiamento (*Slices*):
+
+```typescript
+export type GraphStore = CoreSlice &
+  UiSlice &
+  ApiSlice &
+  HierarchySlice &
+  DevSlice &
+  TempNodeSlice;
+
+```
+
+### Divisão de Responsabilidade das Slices
+
+* **`CoreSlice`**: Controla o estado bruto e filtrado do grafo (`fullNodes`, `fullEdges`, `nodes`, `edges`), o nó selecionado (`selectedNode`) e eventos do React Flow (`onNodesChange`, `onEdgesChange`).
+* **`ApiSlice`**: Concentra a camada de mutação de dados do ClickUp (`createTask`, `createList`, `createSubtask`, `updateTask`, `updateList`, `updateNodeTags`). Realiza o dispatch HTTP e a atualização do estado visual.
+* **`HierarchySlice`**: Controla o colapso e expansão visual de ramificações da árvore (`toggleNodeCollapsed`, `viewAllProjects`, `setFocusedNode`).
+* **`TempNodeSlice`**: Gerencia a criação, confirmação e ciclo de vida dos nós rascunho no canvas.
+* **`UiSlice`**: Gerencia a abertura da barra lateral, modais de apoio (como `quarterPickerModal`), configurações de layout e erros globais.
+* **`DevSlice`**: Modos de desenvolvedor e timers integrados.
+
+---
+
+## 4. Fluxo Unidirecional e Ciclo de Vida de Mutações
+
+O fluxo de dados garante que a interface responda de forma reativa e instantânea, mantendo a consistência com o ClickUp sem recarregar o grafo inteiro.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
@@ -85,103 +106,41 @@ A nova arquitetura estabelece um fluxo unidirecional rígido e direto.
 
 ```
 
----
+### 4.1. Passo a Passo do Ciclo de Vida do `TempNode` (`commitTempNode`)
 
-## 4. Estrutura e Ciclo de Vida das Operações
+1. **Criação do Rascunho (Draft):** O usuário clica no botão "+" de um nó pai (`Folder`, `List` ou `Task`). Um nó com `type: 'temp'` é inserido em `fullNodes` apontando para o `parentId`.
+2. **Confirmação na UI (`commitTempNode`):** O usuário digita o nome e confirma. O método da `TempNodeSlice` remove o `TempNode` e insere síncronamente o nó real correspondente (`TaskNode`, `ListNode` ou `SubtaskNode`) em `fullNodes` com a flag `isOptimistic: true`.
+3. **Persistência HTTP (Background):** A `ApiSlice` executa a requisição assíncrona para a API do ClickUp (`createTask` / `createList`).
+4. **Resolução:**
+* **Sucesso:** O nó real em `fullNodes` tem seus dados atualizados com o ID definitivo retornado pelo ClickUp e `isOptimistic` passa para `false`.
+* **Falha:** O nó otimista é removido de `fullNodes` (Rollback) e o React Query executa `invalidateQueries({ queryKey: ['clickup-graph'] })` para sincronizar o estado real.
 
-### 4.1. Ciclo de Vida do `TempNode` (`commitTempNode`)
 
-O ciclo de criação passa a ser gerenciado nativamente dentro da `tempNodeSlice.ts` no Zustand:
 
-```text
-Draft (TempNode no Canvas)
-  │
-  ▼
-commitTempNode() (Zustand)
-  │
-  ▼
-Conversão Otimista em Node Real (isOptimistic: true em fullNodes)
-  │
-  ├──────────────────────────────────────────┐
-  ▼                                          ▼
-Chamada de API em Background (ApiSlice)    UI / Canvas atualizado sem glitch
-  │
-  ├──────── Sucesso ──────► Finaliza estado otimista (isOptimistic: false)
-  │
-  └──────── Falha ────────► Rollback (Remove de fullNodes + invalidateQueries)
+### 4.2. Passo a Passo da Edição Inline (`TaskDetail`)
 
-```
-
-### 4.2. Edição de Tarefas e Nós Inline
-
-As edições (status, nome, quadrimestre) no `TaskDetail.tsx` chamam diretamente a `ApiSlice` do Zustand:
-
-```typescript
-// Exemplo no TaskDetail.tsx:
-const updateTask = useGraphStore((state) => state.updateTask);
-
-const handleStatusChange = async (newStatus: string) => {
-  // Update otimista síncrono em fullNodes e envio HTTP
-  await updateTask(taskId, { status: newStatus });
-};
-
-```
+1. **Interação:** O usuário altera um atributo de uma tarefa (ex: status, nome ou trimestre) no painel lateral.
+2. **Execução Direct Store:** O componente chama a ação da store `updateTask(taskId, updates)`.
+3. **Atualização Otimista:** A `ApiSlice` atualiza diretamente os atributos do nó correspondente em `fullNodes`. A alteração reflete imediatamente na tela.
+4. **Envio I/O:** A requisição HTTP é enviada ao ClickUp. Em caso de falha, o valor original é restaurado em `fullNodes`.
 
 ---
 
-## 5. Remoção de Código Morto e Limpeza do Projeto
+## 5. Matriz de Responsabilidades
 
-A refatoração contempla a remoção explícita das seguintes estruturas:
-
-1. **`src/lib/cache/graphCacheSync.ts`**: Arquivo completamente removido. O React Query não faz mais mutações manuais de cache via `setQueryData`.
-2. **`src/components/ui/EditTaskModal.tsx`**: Componente removido por redundância com a edição inline em `TaskDetail.tsx`.
-3. **`UiSlice` no Zustand**: Removidos os estados `editTaskModal` e `setEditTaskModal`.
-
-### Interface Limpa do `UiSlice` (`src/types/graph.ts`):
-
-```typescript
-export interface UiSlice {
-  isLoading: boolean;
-  error: string | null;
-  isSidebarOpen: boolean;
-  selectedQuarter: Quarter | null;
-  layoutSettings: LayoutSettings;
-  quarterPickerModal: {
-    isOpen: boolean;
-    listName: string;
-    folderId: string;
-    tempNodeId: string;
-  };
-  setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  setSidebarOpen: (open: boolean) => void;
-  setQuarter: (q: Quarter | null) => void;
-  updateLayoutSettings: (settings: Partial<LayoutSettings>) => void;
-  setQuarterPickerModal: (data: Partial<UiSlice['quarterPickerModal']>) => void;
-}
-
-```
-
----
-
-## 6. Matriz de Responsabilidades Atualizada
-
-| Camada | Responsabilidade | O que NÃO deve fazer |
+| Camada / Módulo | Responsabilidade Principal | O que NÃO deve fazer |
 | --- | --- | --- |
-| **`TempNode.tsx`** | Capturar o input e disparar `commitTempNode()`. | Usar `window.dispatchEvent`, chamar HTTP ou React Query. |
-| **`tempNodeSlice.ts`** | Gerenciar estado temporário e conversão síncrona em nó real. | Tratar da renderização direta ou fazer chamadas HTTP. |
-| **Zustand (`GraphStore`)** | Manter `fullNodes`, `fullEdges`, selecionar nós e acionar a `ApiSlice`. | Atuar como cache cru de API JSON. |
-| **React Flow** | Renderizar os nós e edges fornecidos pelo Zustand. | Controlar persistência, chamadas HTTP ou regra de negócio. |
-| **`mutations.ts`** | Executar as chamadas I/O HTTP puras para a API do ClickUp. | Tentar manipular o estado do React Flow ou alterar o Zustand. |
-| **React Query** | Fetch inicial dos dados do grafo e `invalidateQueries` para recuperação de erros. | Ser a fonte principal de renderização do grafo em cada mutação local. |
+| **`TempNode.tsx`** | Capturar entrada do usuário e invocar as ações do Zustand (`commitTempNode`). | Emitir eventos globais no DOM, invocar HTTP diretamente ou manipular o React Query. |
+| **`TempNodeSlice`** | Gerenciar a transição de estados dos rascunhos e conversão em nós definitivos. | Executar requisições assíncronas HTTP ou tratar layout do DOM. |
+| **`ApiSlice`** | Centralizar e executar chamadas HTTP à API do ClickUp e aplicar atualizações em `fullNodes`. | Gerenciar a abertura de modais ou renderizar JSX. |
+| **`CoreSlice`** | Manter a estrutura de dados `fullNodes` e `fullEdges` do grafo e o nó ativo. | Lidar diretamente com lógica específica da API do ClickUp. |
+| **React Flow Canvas** | Renderizar os nós `AppNode` e arestas na tela e gerenciar zoom/pan. | Controlar regras de negócio, persistência de dados ou mutações de estado. |
+| **React Query** | Fetch do Grafo inicial e invalidação de emergência em cenários de erro. | Ser manipulado manualmente em tempo de execução para atuar como fonte visual. |
 
 ---
 
-## 7. Critérios de Validação da Refatoração
+## 6. Guia de Implementação e Boas Práticas
 
-* [ ] Arquivo `graphCacheSync.ts` e referências completamente removidos.
-* [ ] Componente e referências ao `EditTaskModal` eliminados.
-* [ ] `window.dispatchEvent("tempnode:commit")` e `window.addEventListener` substituídos pelo método `commitTempNode()` no Zustand.
-* [ ] Ações na UI atualizam a árvore `fullNodes` instantaneamente de forma otimista.
-* [ ] Mutações sem erro na API **não** provocam reconstrução total do grafo via `buildGraph()`, preservando a posição e ordenação no canvas.
-* [ ] Falhas nas requisições disparam `invalidateQueries`, garantindo o rollback confiável dos dados direto do ClickUp.
+* **Não force refetches desnecessários:** Utilize as atualizações locais do Zustand. Dispare `queryClient.invalidateQueries` apenas se a API retornar erro ou no recarregamento completo da página.
+* **Preserve a estrutura de tipos:** Toda adição de novos dados aos nós deve ser refletida nas interfaces em `src/types/graph.ts` (ex: `TaskNodeData`, `ListNodeData`).
+* **Mutação de array imutável:** Ao alterar `fullNodes` dentro das slices do Zustand, utilize métodos imutáveis (`map`, `filter` ou cópias de array) para garantir a reatividade do React Flow.
