@@ -14,22 +14,26 @@ import { SEASON_MAP } from "@/config/quarters";
 export type NodeState = 'active' | 'inactive';
 export type Season = keyof typeof SEASON_MAP;
 
-
 // ------------------------------------------
 // 2. DADOS INTERNOS DOS NÓS (Node Data)
 // ------------------------------------------
 
+/** Base para propriedades comuns a todos os nós */
+interface BaseNodeData {
+  isOptimistic?: boolean;
+  [key: string]: unknown;
+}
+
 /** Dados do Nó de Espaço (Raiz da hierarquia) */
-export interface SpaceNodeData {
+export interface SpaceNodeData extends BaseNodeData {
   label: string;
   spaceId: string;
   color: string | null;
   collapsed: boolean;
-  [key: string]: unknown;
 }
 
 /** Dados do Nó de Pasta */
-export interface FolderNodeData {
+export interface FolderNodeData extends BaseNodeData {
   label: string;
   folderId: string;
   parentId: string;
@@ -38,11 +42,10 @@ export interface FolderNodeData {
   state?: NodeState;
   color?: string;
   collapsed: boolean;
-  [key: string]: unknown;
 }
 
 /** Dados do Nó de Lista */
-export interface ListNodeData {
+export interface ListNodeData extends BaseNodeData {
   label: string;
   listId: string;
   parentId: string;
@@ -53,11 +56,10 @@ export interface ListNodeData {
   state: NodeState;
   collapsed: boolean;
   isDev?: boolean;
-  [key: string]: unknown;
 }
 
 /** Dados do Nó de Tarefa */
-export interface TaskNodeData {
+export interface TaskNodeData extends BaseNodeData {
   label: string;
   taskId: string;
   parentId: string;
@@ -69,15 +71,14 @@ export interface TaskNodeData {
   url: string;
   assignees: string[];
   tags: { name: string; bg: string; fg: string }[];
-  quarter: string | null; // Resolvido via custom_fields do ClickUp
+  quarter: Season | null;
   state: NodeState;
   collapsed: boolean;
   variant?: 'default' | 'epic';
-  [key: string]: unknown;
 }
 
 /** Dados do Nó de Subtarefa */
-export interface SubtaskNodeData {
+export interface SubtaskNodeData extends BaseNodeData {
   label: string;
   taskId: string;
   parentId: string;
@@ -90,19 +91,18 @@ export interface SubtaskNodeData {
   checklists?: {
     id: string;
     name: string;
-    items: { id: string; name: string; resolved: boolean }[]
+    items: { id: string; name: string; resolved: boolean }[];
   }[];
-  [key: string]: unknown;
 }
 
 /** Dados do Nó Temporário (Formulário inline de criação) */
-export interface TempNodeData {
+export interface TempNodeData extends BaseNodeData {
   label: string;
   isTemp: boolean;
   parentId: string;
   parentType: 'folder' | 'list' | 'task';
+  quarter?: Season | null;
   collapsed: boolean;
-  [key: string]: unknown;
 }
 
 // ------------------------------------------
@@ -133,23 +133,9 @@ export interface SpaceInfo {
   name: string;
   color: string | null;
 }
-// ------------------------------------------
-// 4. CONSTANTES DE PALETA DE CORES
-// ------------------------------------------
-
-/** Paleta de cores atribuída iterativamente às listas */
-export const LIST_COLORS = [
-  '#f472b6', // pink
-  '#60a5fa', // blue
-  '#34d399', // emerald
-  '#fb923c', // orange
-  '#a78bfa', // violet
-  '#facc15', // yellow
-  '#e879f9', // fuchsia
-];
 
 // ------------------------------------------
-// 5. CONFIGURAÇÕES DE LAYOUT (Dagre/Elk)
+// 4. CONFIGURAÇÕES DE LAYOUT (Dagre/Elk)
 // ------------------------------------------
 
 export interface LayoutSettings {
@@ -234,6 +220,7 @@ export interface HierarchySlice {
 export interface TempNodeSlice {
   addTempNode: (parentId: string, parentType: 'folder' | 'list' | 'task') => void;
   removeTempNode: (tempNodeId: string) => void;
+  commitTempNode: (tempNodeId: string, name: string, quarter?: Season | null) => Promise<void>;
 }
 
 /** Slice com utilitários de desenvolvimento, timers e sincronização */
