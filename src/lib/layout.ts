@@ -1,17 +1,17 @@
-import dagre from 'dagre';
-import { Position } from '@xyflow/react';
-import { AppNode, AppEdge } from '@/types/graph';
-import { LayoutSettings } from '@/store/graphStore';
+import dagre from "dagre";
+import { Position } from "@xyflow/react";
+import { AppNode, AppEdge } from "@/types/graph";
+import { LayoutSettings } from "@/types/graph";
 
 export function getLayoutedElements(
   nodes: AppNode[],
   edges: AppEdge[],
   settings: LayoutSettings,
-  direction: 'TB' | 'LR' = 'TB'
+  direction: "TB" | "LR" = "TB",
 ): { nodes: AppNode[]; edges: AppEdge[] } {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
-  
+
   dagreGraph.setGraph({
     rankdir: direction,
     nodesep: settings.nodesep,
@@ -21,7 +21,10 @@ export function getLayoutedElements(
   });
 
   nodes.forEach((node) => {
-    const nodeHeight = settings.nodeHeightsByType[node.type as keyof typeof settings.nodeHeightsByType] ?? settings.nodeHeight;
+    const nodeHeight =
+      settings.nodeHeightsByType[
+        node.type as keyof typeof settings.nodeHeightsByType
+      ] ?? settings.nodeHeight;
     dagreGraph.setNode(node.id, {
       width: settings.nodeWidth,
       height: nodeHeight,
@@ -36,7 +39,10 @@ export function getLayoutedElements(
 
   const layoutedNodes: AppNode[] = nodes.map((node) => {
     const { x, y } = dagreGraph.node(node.id);
-    const nodeHeight = settings.nodeHeightsByType[node.type as keyof typeof settings.nodeHeightsByType] ?? settings.nodeHeight;
+    const nodeHeight =
+      settings.nodeHeightsByType[
+        node.type as keyof typeof settings.nodeHeightsByType
+      ] ?? settings.nodeHeight;
 
     return {
       ...node,
@@ -44,8 +50,8 @@ export function getLayoutedElements(
         x: x - settings.nodeWidth / 2,
         y: y - nodeHeight / 2,
       },
-      sourcePosition: direction === 'LR' ? Position.Right : Position.Bottom,
-      targetPosition: direction === 'LR' ? Position.Left : Position.Top,
+      sourcePosition: direction === "LR" ? Position.Right : Position.Bottom,
+      targetPosition: direction === "LR" ? Position.Left : Position.Top,
     };
   });
 

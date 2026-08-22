@@ -16,10 +16,9 @@ async function fetchGraphData(spaceId: string): Promise<GraphApiResponse> {
 
 /**
  * Hook para sincronizar os dados do ClickUp com o Zustand do React Flow.
- * 
- * Arquitetura Aplicada (SOLID):
- * - Single Responsibility: Mapeamentos e sincronizações foram isolados em 'GraphSyncService'.
- * - Strategy Pattern: Algoritmos de Re-layout foram isolados no 'LayoutManager'.
+ *
+ * A busca e a orquestração ficam no hook; regras de sincronização e layout
+ * permanecem em serviços independentes e testáveis.
  */
 export function useClickUpData(space: SpaceInfo) {
   const {
@@ -32,6 +31,7 @@ export function useClickUpData(space: SpaceInfo) {
     fullNodes,
     fullEdges,
     layoutSettings,
+    focusedNodeId,
   } = useGraphStore();
 
   // 1. Busca remota via React Query
@@ -43,15 +43,15 @@ export function useClickUpData(space: SpaceInfo) {
     enabled: !!space.id,
   });
 
-  // 2. Transforma e Sincroniza dados do backend com dados locais do Zustand
+  // 2. Transforma a resposta e reconcilia somente o estado local pendente.
   const buildGraph = useCallback(() => {
     if (!data) return;
 
     const folderListsMap = new Map<string, ClickUpList[]>(
-      Object.entries(data.folderListsMap)
+      Object.entries(data.folderListsMap),
     );
     const listTasksMap = new Map<string, ClickUpTask[]>(
-      Object.entries(data.listTasksMap)
+      Object.entries(data.listTasksMap),
     );
 
     const { nodes: rawNodes, edges: rawEdges } = transformClickUpToGraph(
@@ -60,50 +60,52 @@ export function useClickUpData(space: SpaceInfo) {
       data.folderlessLists,
       folderListsMap,
       listTasksMap,
-      selectedQuarter
+      selectedQuarter,
     );
 
     const currentNodes = useGraphStore.getState().fullNodes;
     const currentEdges = useGraphStore.getState().fullEdges;
 
-    // Sincroniza nós remotos preservando alterações otimistas locais
     const { nodes: mergedNodes, edges: mergedEdges } =
       GraphSyncService.mergeServerWithLocalState(
         rawNodes,
         rawEdges,
         currentNodes,
-        currentEdges
+        currentEdges,
       );
 
     setFullGraph(mergedNodes, mergedEdges);
   }, [data, space, setFullGraph, selectedQuarter]);
 
-  // 3. Atualiza visibilidade e aplica algoritmo de Re-Layout (Strategy Pattern)
+  // 3. Deriva o canvas visível a partir do grafo completo.
   useEffect(() => {
-    if (fullNodes.length === 0) return;
+    if (fullNodes.length === 0) {
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
 
-    const focusedNodeId = useGraphStore.getState().focusedNodeId;
     const visibleNodes = calculateNodeVisibility(fullNodes, focusedNodeId);
 
     const visibleNodeIds = new Set(
-      visibleNodes.filter((n) => !n.hidden).map((n) => n.id)
+      visibleNodes.filter((n) => !n.hidden).map((n) => n.id),
     );
     const visibleEdges = fullEdges.filter(
-      (edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)
+      (edge) =>
+        visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target),
     );
 
-    // Executa a estratégia de layout desejada (ex: "dagre")
     const { nodes: layoutedNodes, edges: layoutedEdges } =
       LayoutManager.applyLayout(
-        "dagre", // Altere aqui ou passe dinamicamente via store para trocar o layout!
+        "dagre",
         visibleNodes.filter((n) => !n.hidden),
         visibleEdges,
-        layoutSettings
+        layoutSettings,
       );
 
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
-  }, [fullNodes, fullEdges, layoutSettings, setNodes, setEdges]);
+  }, [fullNodes, fullEdges, focusedNodeId, layoutSettings, setNodes, setEdges]);
 
   // 4. Efeitos de estado
   useEffect(() => {
@@ -113,10 +115,12 @@ export function useClickUpData(space: SpaceInfo) {
   useEffect(() => {
     if (isError) {
       setError(
-        error instanceof Error ? error.message : "Erro ao carregar dados"
+        error instanceof Error ? error.message : "Erro ao carregar dados",
       );
+    } else if (data) {
+      setError(null);
     }
-  }, [isError, error, setError]);
+  }, [isError, error, data, setError]);
 
   useEffect(() => {
     if (data) {
