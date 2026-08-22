@@ -1,6 +1,6 @@
 //Agora a função principal atua unicamente como Orquestradora/Facade, facilitando a leitura e a manutenção.
 import { ClickUpFolder, ClickUpList, ClickUpTask } from '@/types/clickup';
-import { AppNode, AppEdge, NodeState } from '@/types/graph';
+import { AppNode, AppEdge, NodeState, SpaceInfo } from '@/types/graph';
 import { getAreaColor } from '@/theme/areas';
 import {
     buildResolvedQuarters,
@@ -22,12 +22,6 @@ import {
 } from './node-factories';
 import { createTaskEdge, createSubtaskEdge } from './edge-factories';
 import { SEASONS } from '@/config/quarters';
-
-export interface SpaceInfo {
-    id: string;
-    name: string;
-    color: string | null;
-}
 
 interface ProcessedListInfo {
     list: ClickUpList;

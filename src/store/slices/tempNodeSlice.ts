@@ -1,10 +1,5 @@
 import { StateCreator } from 'zustand';
-import { GraphStore, AppNode } from '@/types/graph';
-
-export interface TempNodeSlice {
-    addTempNode: (parentId: string, parentType: 'folder' | 'list' | 'task') => void;
-    removeTempNode: (tempNodeId: string) => void;
-}
+import { GraphStore, AppNode, TempNodeSlice } from '@/types/graph';
 
 export const createTempNodeSlice: StateCreator<
     GraphStore,

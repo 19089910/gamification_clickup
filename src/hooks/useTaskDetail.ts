@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { TaskNodeData } from '@/types/graph';
-import { GraphApiResponse } from '@/hooks/useClickUpData';
+import { GraphApiResponse } from '@/types/clickup';
 import { getStatusFromConfig } from '@/config/status';
 import { TRIMESTRE_FIELD_ID, SEASON_MAP, type Season } from '@/config/quarters';
 import { extractTagsFromName } from '@/utils/label-parser';

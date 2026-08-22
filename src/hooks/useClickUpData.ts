@@ -1,18 +1,12 @@
 import { useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useGraphStore } from "@/store/graphStore";
-import { transformClickUpToGraph, SpaceInfo } from "@/lib/graph-trasformer/transformClickUpToGraph";
+import { transformClickUpToGraph } from "@/lib/graph-trasformer/transformClickUpToGraph";
 import { getLayoutedElements } from "@/lib/layout";
-import { ClickUpFolder, ClickUpList, ClickUpTask } from "@/types/clickup";
+import { ClickUpList, ClickUpTask, GraphApiResponse } from "@/types/clickup";
+import { SpaceInfo } from "@/types/graph";
 import { calculateNodeVisibility } from "@/utils/hierarchy";
 
-export interface GraphApiResponse {
-  folders: ClickUpFolder[];
-  folderlessLists: ClickUpList[];
-  folderListsMap: Record<string, ClickUpList[]>;
-  listTasksMap: Record<string, ClickUpTask[]>;
-  error?: string;
-}
 
 async function fetchGraphData(spaceId: string): Promise<GraphApiResponse> {
   const res = await fetch(`/api/clickup/graph?spaceId=${spaceId}`);

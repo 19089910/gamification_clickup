@@ -1,3 +1,5 @@
+import { Season } from "@/types/graph";
+
 function getEnv(
   value: string | undefined,
   name: string
@@ -16,7 +18,7 @@ export const SEASON_MAP = {
   SPRING: getEnv(process.env.NEXT_PUBLIC_SPRING_ID, 'NEXT_PUBLIC_SPRING_ID'),
 } as const;
 
-export type Season = keyof typeof SEASON_MAP;
+
 export const SEASONS = Object.keys(SEASON_MAP) as Season[];
 
 export const TRIMESTRE_FIELD_ID =

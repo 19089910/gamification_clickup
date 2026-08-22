@@ -2,10 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { ClickUpTeam, ClickUpSpace } from '@/types/clickup';
-
-interface TeamsResponse { teams: ClickUpTeam[] }
-interface SpacesResponse { spaces: ClickUpSpace[] }
+import { TeamsResponse, SpacesResponse, ClickUpSpace } from '@/types/clickup';
 
 async function fetchTeams(): Promise<TeamsResponse> {
   const res = await fetch('/api/clickup/teams');

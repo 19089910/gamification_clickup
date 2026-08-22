@@ -4,14 +4,14 @@ import { InlineNameEditor } from './InlineNameEditor';
 import { AppNode, ListNodeData } from '@/types/graph';
 import { useGraphStore } from '@/store/graphStore';
 import { useQueryClient } from '@tanstack/react-query';
-import { GraphApiResponse } from '@/hooks/useClickUpData';
+import { GraphApiResponse } from '@/types/clickup';
 
 export function ListDetail({ node }: { node: AppNode }) {
   const list = node.data as ListNodeData;
   const { toggleDevMode, isSyncingDevMode, spaceId } = useGraphStore();
   const isDev = !!list.isDev;
   const inputRef = useRef<HTMLInputElement>(null);
-  
+
   const queryClient = useQueryClient();
   const graphData = queryClient.getQueryData<GraphApiResponse>(["clickup-graph", spaceId]);
   const tasks = graphData?.listTasksMap[list.listId] || [];
@@ -77,7 +77,7 @@ export function ListDetail({ node }: { node: AppNode }) {
                 <button className="btn-confirm-no" onClick={handleCancel}>Não</button>
               </div>
             ) : (
-              <div 
+              <div
                 className={`premium-switch ${isDev ? 'active' : ''} ${isSyncingDevMode ? 'syncing' : ''}`}
                 onClick={handleToggleClick}
                 title={isSyncingDevMode ? 'Sincronizando com ClickUp...' : (isDev ? 'Desativar Dev Mode' : 'Ativar Dev Mode')}
@@ -85,8 +85,8 @@ export function ListDetail({ node }: { node: AppNode }) {
                 <div className="premium-switch-handle" />
               </div>
             )}
-            
-            <span className="detail-key" style={{ fontSize: isDev ? '16px':'11px' , fontWeight: 600, color: isDev ? '#a78bfa' : 'var(--text-3)' }}>
+
+            <span className="detail-key" style={{ fontSize: isDev ? '16px' : '11px', fontWeight: 600, color: isDev ? '#a78bfa' : 'var(--text-3)' }}>
               {isSyncingDevMode ? 'Sincronizando...' : (isDev ? '⚡' : 'Modo Dev')}
             </span>
           </div>

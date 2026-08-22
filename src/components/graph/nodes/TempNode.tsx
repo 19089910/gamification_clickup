@@ -2,22 +2,7 @@
 
 import React, { memo, useCallback } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { Node } from "@xyflow/react";
-
-interface TempNodeData {
-  label: string;
-  isTemp: boolean;
-  parentId: string;
-  parentType: 'folder' | 'list' | 'task';
-  [key: string]: unknown;
-}
-
-type TempNodeType = Node<TempNodeData, 'temp'>;
-
-interface TempNodeProps extends NodeProps<TempNodeType> {
-  onCommit: (nodeId: string, name: string) => void;
-  onCancel: (nodeId: string) => void;
-}
+import { TempNode as TempNodeType } from "@/types/graph";
 
 const TempNode = memo<NodeProps<TempNodeType>>(({ id, data }) => {
   const isForList = data.parentType === 'folder';

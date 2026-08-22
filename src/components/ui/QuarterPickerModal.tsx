@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
-import { GraphApiResponse } from '@/hooks/useClickUpData';
+import { GraphApiResponse } from '@/types/clickup';
 import { SEASON_CONFIG } from '@/config/quarters';
 
 export default function QuarterPickerModal() {

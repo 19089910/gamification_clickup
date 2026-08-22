@@ -6,13 +6,7 @@ import {
   toggleFolderCollapse,
   toggleSpaceCollapse,
 } from "@/utils/hierarchy";
-
-export interface HierarchySlice {
-  focusedNodeId: string | null;
-  setFocusedNode: (nodeId: string | null) => void;
-  toggleNodeCollapsed: (nodeId: string, nodeType?: string) => void;
-  viewAllProjects: () => void;
-}
+import { HierarchySlice } from "@/types/graph"
 
 export const createHierarchySlice: StateCreator<GraphStore, [], [], HierarchySlice> = (set) => ({
   focusedNodeId: null,

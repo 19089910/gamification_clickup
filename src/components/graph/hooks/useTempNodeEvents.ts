@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGraphStore } from "@/store/graphStore";
 import { type Season, SEASON_MAP } from "@/config/quarters";
-import { GraphApiResponse } from "@/hooks/useClickUpData";
+import { GraphApiResponse } from "@/types/clickup";
 
 export function useTempNodeEvents() {
     const queryClient = useQueryClient();
