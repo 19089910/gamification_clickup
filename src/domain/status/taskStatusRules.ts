@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { AppNode, TaskNodeData, SubtaskNodeData } from '@/types/graph';
-import { GraphApiResponse } from '@/hooks/useClickUpData';
-import { getStatus } from '@/config/status';
+import { GraphApiResponse } from '@/types/clickup';
+import { getStatus, getCategory } from '@/config/status';
 import {
-    getInitialSubtaskStatus,
+    getActiveSubtaskStatus,
+    getDoneSubtaskStatus,
     shouldUpdateSubtasksOnParentStatusChange,
 } from '@/domain/status/statusRules';
 
@@ -23,49 +24,76 @@ export function useTaskStatus(node: AppNode) {
 
     const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value;
+        const parentCategory = getCategory(newStatus);
         setLocalStatus(newStatus);
         setIsSavingStatus(true);
 
         const taskId = task.taskId;
-        const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
+        const rawCleanId = taskId.replace(/^(task|subtask)-/, '');
+        const spaceId = useGraphStore.getState().spaceId;
+        const queryKey = ['clickup-graph', spaceId];
         const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
 
         try {
-            const initialSubtaskStatus = getInitialSubtaskStatus();
-            const shouldPropagateToSubtasks = shouldUpdateSubtasksOnParentStatusChange(newStatus);
+            const shouldPropagate = shouldUpdateSubtasksOnParentStatusChange(newStatus);
+            const targetActiveStatus = getActiveSubtaskStatus();
+            const targetDoneStatus = getDoneSubtaskStatus();
 
-            // Atualização Otimista no Zustand
+            // 1. Atualização Otimista no Zustand State
             useGraphStore.setState((state) => {
-                const config = getStatus(newStatus);
+                const parentConfig = getStatus(newStatus);
 
                 const updatedNodes = state.fullNodes.map((n) => {
-                    // Atualiza a Task Pai
-                    if (n.id === `task-${taskId}`) {
+                    const nodeRawId = n.id.replace(/^(task|subtask)-/, '');
+
+                    // A) Atualiza o próprio nó alterado (Pai ou Filha)
+                    if (nodeRawId === rawCleanId) {
                         return {
                             ...n,
-                            data: { ...n.data, status: newStatus, statusColor: config?.color || '#999' },
+                            data: {
+                                ...n.data,
+                                status: newStatus,
+                                statusColor: parentConfig?.color || '#999',
+                                isOptimistic: true, // Protege contra resets na refetch
+                            },
                         } as AppNode;
                     }
 
-                    // Propaga para subtasks que estiverem em 'not-started' quando a Task Pai for para 'active'
-                    if (
-                        shouldPropagateToSubtasks &&
-                        n.type === 'subtask' &&
-                        (n.data as SubtaskNodeData).parentId === taskId
-                    ) {
+                    // B) Propagação em cascata da Task Pai para as Subtasks filhas
+                    if (shouldPropagate && n.type === 'subtask') {
                         const subtaskData = n.data as SubtaskNodeData;
-                        const subtaskConfig = getStatus(subtaskData.status);
+                        const subtaskParentClean = subtaskData.parentId?.replace(/^(task|subtask)-/, '');
 
-                        if (!subtaskConfig || subtaskConfig.category === 'not-started') {
-                            const initConfig = getStatus(initialSubtaskStatus);
-                            return {
-                                ...n,
-                                data: {
-                                    ...n.data,
-                                    status: initialSubtaskStatus,
-                                    statusColor: initConfig?.color || '#999',
-                                },
-                            } as AppNode;
+                        if (subtaskParentClean === rawCleanId) {
+                            const currentSubCategory = getCategory(subtaskData.status);
+
+                            // Regra 1: Pai vai para 'active' -> Subtasks em 'not-started' mudam para 'active'
+                            if (parentCategory === 'active' && currentSubCategory === 'not-started') {
+                                const activeConfig = getStatus(targetActiveStatus);
+                                return {
+                                    ...n,
+                                    data: {
+                                        ...n.data,
+                                        status: targetActiveStatus,
+                                        statusColor: activeConfig?.color || '#999',
+                                        isOptimistic: true,
+                                    },
+                                } as AppNode;
+                            }
+
+                            // Regra 2: Pai vai para 'done' -> Todas as subtasks filhas concluem ('done')
+                            if (parentCategory === 'done' && currentSubCategory !== 'done') {
+                                const doneConfig = getStatus(targetDoneStatus);
+                                return {
+                                    ...n,
+                                    data: {
+                                        ...n.data,
+                                        status: targetDoneStatus,
+                                        statusColor: doneConfig?.color || '#999',
+                                        isOptimistic: true,
+                                    },
+                                } as AppNode;
+                            }
                         }
                     }
 
@@ -78,13 +106,15 @@ export function useTaskStatus(node: AppNode) {
                 };
             });
 
-            // Atualização na Cache do React Query
+            // 2. Atualização Otimista na Cache do React Query
             queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
                 if (!oldData) return oldData;
                 const newListTasksMap = { ...oldData.listTasksMap };
 
                 for (const listId in newListTasksMap) {
-                    const taskIndex = newListTasksMap[listId].findIndex((t) => t.id === taskId);
+                    const taskIndex = newListTasksMap[listId].findIndex(
+                        (t) => t.id === rawCleanId
+                    );
                     if (taskIndex !== -1) {
                         const config = getStatus(newStatus);
                         newListTasksMap[listId][taskIndex] = {
@@ -101,11 +131,14 @@ export function useTaskStatus(node: AppNode) {
                 return { ...oldData, listTasksMap: newListTasksMap };
             });
 
-            // Persiste via Mutation/Store
-            await useGraphStore.getState().updateTask(taskId as string, { status: newStatus });
+            // 3. Chamada de Persistência HTTP via Store
+            await useGraphStore.getState().updateTask(rawCleanId, { status: newStatus });
         } catch (err) {
             console.error('Erro ao atualizar status da task:', err);
-            if (previousData) queryClient.setQueryData(queryKey, previousData);
+            // Rollback para estado anterior da cache
+            if (previousData) {
+                queryClient.setQueryData(queryKey, previousData);
+            }
             queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
         } finally {
             setIsSavingStatus(false);

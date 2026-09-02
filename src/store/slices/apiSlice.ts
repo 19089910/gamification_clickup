@@ -54,6 +54,7 @@ export const createApiSlice: StateCreator<GraphStore, [], [], ApiSlice> = (set, 
           state: 'active',
           collapsed: false,
           url: res.url || undefined,
+          isOptimistic: true,// <--- Marcado para o GraphSyncService preservar!
         },
       };
 
