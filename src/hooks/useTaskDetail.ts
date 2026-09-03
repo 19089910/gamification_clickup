@@ -3,11 +3,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { TaskNodeData } from '@/types/graph';
 import { GraphApiResponse } from '@/types/clickup';
-import { getStatus } from '@/config/status';
+import { getStatus, getCategory } from '@/config/status';
 import { TRIMESTRE_FIELD_ID, SEASON_MAP } from '@/config/quarters';
 import { extractTagsFromName } from '@/utils/label-parser';
-import { getStatusCategory } from '@/lib/status-sync';
 import { SubtaskNodeData, AppNode, Season } from '@/types/graph';
+import { shouldUpdateSubtasksOnParentStatusChange, getActiveSubtaskStatus, getDoneSubtaskStatus } from '@/domain/status/statusRules';
+import { GraphSyncService } from '@/domain/graph/graphSync.service';
 
 export function useTaskDetail(node: AppNode) {
   const { updateTask, selectedQuarter, setSidebarOpen, updateNodeTags } = useGraphStore();
@@ -160,89 +161,71 @@ export function useTaskDetail(node: AppNode) {
     const newColor = statusConfig?.color || task.statusColor;
     const newLabel = statusConfig?.label.toLowerCase() || newStatusIdOrName;
 
-    // Regra 2 — se pai vai para Ativo, filhos planning seguem
-    const newCategory = getStatusCategory(newStatusIdOrName);
     const { fullNodes } = useGraphStore.getState();
     const childNodes = fullNodes.filter(
       n => n.type === 'subtask' && (n.data as SubtaskNodeData).parentId === task.taskId
     );
-    const childrenToSync = newCategory === 'active'
-      ? childNodes.filter(n => getStatusCategory((n.data as SubtaskNodeData).status) === 'inactive')
-      : [];
+
+    // Usa a regra de domínio para verificar se deve propagar o status
+    const shouldUpdateSubtasks = shouldUpdateSubtasksOnParentStatusChange(newStatusIdOrName);
+    const parentCategory = getCategory(newStatusIdOrName);
+
+    let childrenToSync: AppNode[] = [];
+    let childNewStatusId = '';
+    let childNewColor = '';
+
+    if (shouldUpdateSubtasks) {
+      if (parentCategory === 'active') {
+        childNewStatusId = getActiveSubtaskStatus();
+        const activeConfig = getStatus(childNewStatusId);
+        childNewColor = activeConfig?.color || '#999';
+
+        childrenToSync = childNodes.filter(n => {
+          const childCat = getCategory((n.data as SubtaskNodeData).status);
+          return childCat === 'not-started';
+        });
+      } else if (parentCategory === 'done') {
+        childNewStatusId = getDoneSubtaskStatus();
+        const doneConfig = getStatus(childNewStatusId);
+        childNewColor = doneConfig?.color || '#999';
+
+        childrenToSync = childNodes.filter(n => {
+          const childCat = getCategory((n.data as SubtaskNodeData).status);
+          return childCat !== 'done';
+        });
+      }
+    }
 
     const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
     const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
 
     try {
+      // Zustand otimista — pai e filhos em cascata via store (SOLID)
+      const updates = [
+        {
+          id: `task-${task.taskId}`,
+          status: statusConfig?.id || newLabel,
+          color: newColor,
+        },
+        ...childrenToSync.map(c => ({
+          id: c.id,
+          status: childNewStatusId,
+          color: childNewColor,
+        }))
+      ];
+      useGraphStore.getState().updateNodesStatus(updates);
+
+      // Atualiza o Cache Imutável do React Query (SOLID)
       queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
-        if (!oldData) return oldData;
-        const newListTasksMap = { ...oldData.listTasksMap };
-        let taskFound = false;
-
-        for (const listId in newListTasksMap) {
-          const taskIndex = newListTasksMap[listId].findIndex(t => t.id === task.taskId);
-          if (taskIndex !== -1) {
-            // atualiza o pai
-            newListTasksMap[listId][taskIndex] = {
-              ...newListTasksMap[listId][taskIndex],
-              status: {
-                ...newListTasksMap[listId][taskIndex].status,
-                status: statusConfig?.id || newLabel,
-                color: newColor,
-              },
-            };
-
-            // atualiza os filhos planning no cache
-            if (childrenToSync.length > 0) {
-              const childConfig = statusConfig;
-              newListTasksMap[listId] = newListTasksMap[listId].map(t => {
-                const isChild = childrenToSync.some(
-                  n => (n.data as SubtaskNodeData).taskId === t.id
-                );
-                if (!isChild) return t;
-                return {
-                  ...t,
-                  status: {
-                    ...t.status,
-                    status: childConfig?.id || newLabel,
-                    color: childConfig?.color || newColor,
-                  },
-                };
-              });
-            }
-
-            taskFound = true;
-            break;
-          }
-        }
-        return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
+        return GraphSyncService.updateTasksStatusInCache(oldData, updates);
       });
 
-      // Zustand otimista — pai
-      useGraphStore.setState(state => ({
-        fullNodes: state.fullNodes.map(n => {
-          if (n.id === `task-${task.taskId}`) {
-            return {
-              ...n,
-              data: { ...n.data, status: statusConfig?.id || newLabel, statusColor: newColor },
-            } as AppNode;
-          }
-          // filhos planning → seguem o pai
-          if (childrenToSync.some(c => c.id === n.id)) {
-            return {
-              ...n,
-              data: { ...n.data, status: statusConfig?.id || newLabel, statusColor: newColor },
-            } as AppNode;
-          }
-          return n;
-        }),
-      }));
 
       // API — pai + filhos em paralelo
       await Promise.all([
         updateTask(task.taskId as string, { status: statusConfig?.id || newStatusIdOrName }),
         ...childrenToSync.map(n =>
-          updateTask((n.data as SubtaskNodeData).taskId, { status: statusConfig?.id || newStatusIdOrName })
+          updateTask((n.data as SubtaskNodeData).taskId, { status: childNewStatusId })
         ),
       ]);
 
