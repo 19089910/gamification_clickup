@@ -34,8 +34,9 @@ export function useTaskStatus(node: AppNode) {
         const newLabel = statusConfig?.label.toLowerCase() || newStatusIdOrName;
 
         const { fullNodes } = useGraphStore.getState();
+        const taskNodeId = `task-${task.taskId}`;
         const childNodes = fullNodes.filter(
-            (n) => n.type === 'subtask' && (n.data as SubtaskNodeData).parentId === task.taskId
+            (n) => n.type === 'subtask' && (n.data as SubtaskNodeData).parentId === taskNodeId
         );
 
         const shouldUpdateSubtasks = shouldUpdateSubtasksOnParentStatusChange(newStatusIdOrName);
