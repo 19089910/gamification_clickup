@@ -1,6 +1,6 @@
 //Cada tipo de nó possui uma fábrica dedicada. Se o payload de uma Task mudar, você altera apenas a fábrica de Tasks.
 import { ClickUpFolder, ClickUpList, ClickUpTask } from '@/types/clickup';
-import { AppNode, NodeState } from '@/types/graph';
+import { AppNode, NodeState, Season } from '@/types/graph';
 import { getDefaultCollapsed, cleanListName } from '@/utils/node-utils';
 import { getTaskVariant } from '@/lib/task-variant';
 
@@ -63,7 +63,7 @@ export function createListNode(
     };
 }
 
-export function createTaskNode(task: ClickUpTask, parentListId: string, quarter: string | null, state: NodeState): AppNode {
+export function createTaskNode(task: ClickUpTask, parentListId: string, quarter: Season | null, state: NodeState): AppNode {
     return {
         id: `task-${task.id}`,
         type: 'task',

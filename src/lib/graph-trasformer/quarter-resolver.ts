@@ -1,15 +1,20 @@
 import { ClickUpTask } from '@/types/clickup';
 import { SEASON_MAP, TRIMESTRE_FIELD_ID, SEASONS } from '@/config/quarters';
+import { Season } from '@/types/graph';
 
 
 // ============================================================================
 // ClickUp Field Extraction Helpers
 // ============================================================================
 
+function isSeason(value: string): value is Season {
+    return SEASONS.includes(value as Season);
+}
+
 /**
  * Extrai o quarter de uma única task do ClickUp observando os custom_fields.
  */
-export function getTaskQuarter(task: ClickUpTask): string | null {
+export function getTaskQuarter(task: ClickUpTask): Season | null {
     const field = task.custom_fields?.find(f => f.id === TRIMESTRE_FIELD_ID);
 
     if (!field || field.value === undefined) return null;
@@ -20,12 +25,16 @@ export function getTaskQuarter(task: ClickUpTask): string | null {
         const selected = options.find(
             (o: any) => o.id === field.value || o.orderindex === field.value
         );
-        if (selected?.name) return selected.name.toUpperCase();
+        if (selected?.name) {
+            const upper = selected.name.toUpperCase();
+            return isSeason(upper) ? upper : null;
+        }
     }
 
     // Fallback: campo injetado otimisticamente (sem type_config)
     const entry = Object.entries(SEASON_MAP).find(([, uuid]) => uuid === field.value);
-    return entry?.[0] ?? null;
+    const key = entry?.[0] ?? null;
+    return key && isSeason(key) ? key : null;
 }
 
 /**
