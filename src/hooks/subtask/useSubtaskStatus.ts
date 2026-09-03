@@ -58,14 +58,15 @@ export function useSubtaskStatus(node: AppNode) {
             if (allSiblingsComplete) {
                 const parentConfig = getStatus('complete');
                 updates.push({
-                    id: `task-${parentId}`,
+                    id: parentId,  // ← parentId já é 'task-86e2hvrwc', não precisa do prefixo
                     status: 'complete',
                     color: parentConfig?.color || '#0f9d9f',
                 });
             }
 
             useGraphStore.getState().updateNodesStatus(updates);
-
+            console.log('parentId:', parentId);
+            console.log('updates:', updates);
             // Atualização na Cache do React Query (SOLID)
             queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
                 return GraphSyncService.updateTasksStatusInCache(oldData, updates);
