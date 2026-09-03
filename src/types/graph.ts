@@ -175,6 +175,7 @@ export interface CoreSlice {
   onEdgesChange: OnEdgesChange<AppEdge>;
   setSelectedNode: (node: AppNode | null) => void;
   setSpaceId: (id: string) => void;
+  updateNodesStatus: (updates: { id: string; status: string; color: string }[]) => void;
 }
 
 /** Slice responsável pela interface, filtros e modais */
