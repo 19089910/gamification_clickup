@@ -131,7 +131,7 @@ export default function CreateIssueModal({
                 <div className="field half">
                   <label className="field-label">Status</label>
                   <select className="input-select" value={status} onChange={(e) => setStatus(e.target.value)}>
-                    {STATUS_CONFIG.flatMap(g => g.statuses).map(s => (
+                    {STATUS_CONFIG.map(s => (
                       <option key={s.id} value={s.id}>{s.label}</option>
                     ))}
                   </select>
