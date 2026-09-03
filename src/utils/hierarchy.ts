@@ -107,22 +107,20 @@ export function toggleSingleNodeCollapse(nodes: AppNode[], targetId: string): Ap
 
 /**
  * Recalcula a visibilidade ('hidden') respeitando:
- * - O colapso dos ancestrais na árvore.
+ * - O colapso/ocultação dos ancestrais na árvore.
  * - Regra 5 (Focus Mode): Preserva apenas o caminho ancestral da Task focada,
- *   a Task focada e suas próprias Subtasks, ocultando as Tasks irmãs da mesma List.
+ *   a Task focada e suas próprias Subtasks, ocultando todas as outras Tasks e Subtasks paralelas.
  */
 export function calculateNodeVisibility(nodes: AppNode[], focusedNodeId: string | null): AppNode[] {
     const nodeMap = new Map<string, AppNode>(nodes.map((n) => [n.id, n]));
 
     // Dados de suporte para o Focus Mode
-    let focusListId: string | null = null;
     let focusAncestors = new Set<string>();
     let focusDescendants = new Set<string>();
 
     if (focusedNodeId) {
         const focusedTask = nodeMap.get(focusedNodeId);
         if (focusedTask) {
-            focusListId = (focusedTask.data?.parentId as string) || null;
             focusAncestors = getAncestorsPath(nodes, focusedNodeId);
             focusDescendants = getDescendantIds(nodes, focusedNodeId);
         }
@@ -130,19 +128,14 @@ export function calculateNodeVisibility(nodes: AppNode[], focusedNodeId: string 
 
     return nodes.map((node) => {
         // 1. Tratamento da Regra 5 (Focus Mode)
-        if (focusedNodeId && focusListId) {
-            const parentId = node.data?.parentId as string | undefined;
-
-            // Mantém caminho de ancestrais, a própria Task em foco e suas Subtasks
+        if (focusedNodeId) {
             const isAncestor = focusAncestors.has(node.id);
             const isFocusedSelf = node.id === focusedNodeId;
             const isSubtaskOfFocused = focusDescendants.has(node.id);
 
+            // Se o nó não faz parte da "espinha dorsal" do Focus (Ancestrais -> Focada -> Subtasks Focadas), oculta.
             if (!isAncestor && !isFocusedSelf && !isSubtaskOfFocused) {
-                // Oculta irmãs da mesma List e galhos paralelos
-                if (parentId === focusListId && node.id !== focusedNodeId) {
-                    return { ...node, hidden: true } as AppNode;
-                }
+                return { ...node, hidden: true } as AppNode;
             }
         }
 
@@ -152,7 +145,8 @@ export function calculateNodeVisibility(nodes: AppNode[], focusedNodeId: string 
         while (currentParentId) {
             const parentNode = nodeMap.get(currentParentId);
 
-            if (!parentNode || parentNode.data?.collapsed) {
+            // Se o pai não existe ou se o pai está colapsado ou escondido, oculta o filho também
+            if (!parentNode || parentNode.data?.collapsed || parentNode.hidden) {
                 return { ...node, hidden: true } as AppNode;
             }
 
