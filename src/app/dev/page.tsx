@@ -7,13 +7,7 @@ import DevHeader from "@/components/dev/DevHeader";
 import LoadingScreen from "@/components/ui/LoadingScreen";
 import { ClickUpList, ClickUpTask } from "@/types/clickup";
 import { isDevList, hasDevTag } from "@/lib/dev-mode";
-
-interface GraphData {
-  folders: { id: string; name: string }[];
-  folderlessLists: ClickUpList[];
-  folderListsMap: Record<string, ClickUpList[]>;
-  listTasksMap: Record<string, ClickUpTask[]>;
-}
+import { GraphApiResponse } from "@/types/clickup";
 
 interface MilestoneInfo {
   list: ClickUpList;
@@ -33,10 +27,10 @@ export default function MilestonesDashboard() {
   const spaceId =
     typeof window !== "undefined"
       ? new URLSearchParams(window.location.search).get("spaceId") ??
-        localStorage.getItem("lastSpaceId")
+      localStorage.getItem("lastSpaceId")
       : null;
 
-  const { data, isLoading } = useQuery<GraphData>({
+  const { data, isLoading } = useQuery<GraphApiResponse>({
     queryKey: ["clickup-graph", spaceId],
     queryFn: async () => {
       if (!spaceId) throw new Error("No spaceId");

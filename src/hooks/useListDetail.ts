@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
 import { ListNodeData } from '@/types/graph';
-import { GraphApiResponse } from '@/hooks/useClickUpData';
+import { GraphApiResponse } from '@/types/clickup';
 
 export function useListDetail(node: any) {
   const { updateList, setSidebarOpen } = useGraphStore();
@@ -19,7 +19,7 @@ export function useListDetail(node: any) {
 
   const handleSaveList = async () => {
     if (!localName.trim()) return;
-    
+
     const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
     const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
 

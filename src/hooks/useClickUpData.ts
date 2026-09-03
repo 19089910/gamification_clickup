@@ -1,18 +1,12 @@
 import { useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useGraphStore } from "@/store/graphStore";
-import { transformClickUpToGraph, SpaceInfo } from "@/lib/graph-transformer";
-import { getLayoutedElements } from "@/lib/layout";
-import { ClickUpFolder, ClickUpList, ClickUpTask } from "@/types/clickup";
+import { transformClickUpToGraph } from "@/lib/graph-trasformer/transformClickUpToGraph";
+import { ClickUpList, ClickUpTask, GraphApiResponse } from "@/types/clickup";
+import { SpaceInfo } from "@/types/graph";
 import { calculateNodeVisibility } from "@/utils/hierarchy";
-
-export interface GraphApiResponse {
-  folders: ClickUpFolder[];
-  folderlessLists: ClickUpList[];
-  folderListsMap: Record<string, ClickUpList[]>;
-  listTasksMap: Record<string, ClickUpTask[]>;
-  error?: string;
-}
+import { GraphSyncService } from "@/domain/graph/graphSync.service";
+import { LayoutManager } from "@/domain/layout/layoutManager";
 
 async function fetchGraphData(spaceId: string): Promise<GraphApiResponse> {
   const res = await fetch(`/api/clickup/graph?spaceId=${spaceId}`);
@@ -20,6 +14,12 @@ async function fetchGraphData(spaceId: string): Promise<GraphApiResponse> {
   return res.json();
 }
 
+/**
+ * Hook para sincronizar os dados do ClickUp com o Zustand do React Flow.
+ *
+ * A busca e a orquestração ficam no hook; regras de sincronização e layout
+ * permanecem em serviços independentes e testáveis.
+ */
 export function useClickUpData(space: SpaceInfo) {
   const {
     setNodes,
@@ -30,9 +30,11 @@ export function useClickUpData(space: SpaceInfo) {
     selectedQuarter,
     fullNodes,
     fullEdges,
-    layoutSettings
+    layoutSettings,
+    focusedNodeId,
   } = useGraphStore();
 
+  // 1. Busca remota via React Query
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["clickup-graph", space.id],
     queryFn: () => fetchGraphData(space.id),
@@ -41,6 +43,7 @@ export function useClickUpData(space: SpaceInfo) {
     enabled: !!space.id,
   });
 
+  // 2. Transforma a resposta e reconcilia somente o estado local pendente.
   const buildGraph = useCallback(() => {
     if (!data) return;
 
@@ -57,50 +60,54 @@ export function useClickUpData(space: SpaceInfo) {
       data.folderlessLists,
       folderListsMap,
       listTasksMap,
-      selectedQuarter
+      selectedQuarter,
     );
 
-    // Preserve the user's collapse state when only the quarter filter changed.
-    const existingCollapse = new Map(
-      useGraphStore.getState().fullNodes.map(n => [n.id, n.data.collapsed])
-    );
+    const currentNodes = useGraphStore.getState().fullNodes;
+    const currentEdges = useGraphStore.getState().fullEdges;
 
-    const preservedNodes = rawNodes.map(n => {
-      if (existingCollapse.has(n.id)) {
-        return { ...n, data: { ...n.data, collapsed: existingCollapse.get(n.id) } };
-      }
-      return n;
-    }) as typeof rawNodes;
+    const { nodes: mergedNodes, edges: mergedEdges } =
+      GraphSyncService.mergeServerWithLocalState(
+        rawNodes,
+        rawEdges,
+        currentNodes,
+        currentEdges,
+      );
 
-    setFullGraph(preservedNodes, rawEdges);
+    setFullGraph(mergedNodes, mergedEdges);
   }, [data, space, setFullGraph, selectedQuarter]);
 
-  // Effect to update visible graph whenever fullNodes or fullEdges change
+  // 3. Deriva o canvas visível a partir do grafo completo.
   useEffect(() => {
-    if (fullNodes.length === 0) return;
+    if (fullNodes.length === 0) {
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
 
-    const focusedNodeId = useGraphStore.getState().focusedNodeId;
     const visibleNodes = calculateNodeVisibility(fullNodes, focusedNodeId);
 
     const visibleNodeIds = new Set(
-      visibleNodes.filter(n => !n.hidden).map(n => n.id)
+      visibleNodes.filter((n) => !n.hidden).map((n) => n.id),
     );
     const visibleEdges = fullEdges.filter(
-      edge => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)
+      (edge) =>
+        visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target),
     );
 
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      visibleNodes.filter(n => !n.hidden),
-      visibleEdges,
-      layoutSettings,
-      "LR"
-    );
+    const { nodes: layoutedNodes, edges: layoutedEdges } =
+      LayoutManager.applyLayout(
+        "dagre",
+        visibleNodes.filter((n) => !n.hidden),
+        visibleEdges,
+        layoutSettings,
+      );
 
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
-  }, [fullNodes, fullEdges, layoutSettings, setNodes, setEdges]);
+  }, [fullNodes, fullEdges, focusedNodeId, layoutSettings, setNodes, setEdges]);
 
-
+  // 4. Efeitos de estado
   useEffect(() => {
     setLoading(isLoading);
   }, [isLoading, setLoading]);
@@ -110,8 +117,10 @@ export function useClickUpData(space: SpaceInfo) {
       setError(
         error instanceof Error ? error.message : "Erro ao carregar dados",
       );
+    } else if (data) {
+      setError(null);
     }
-  }, [isError, error, setError]);
+  }, [isError, error, data, setError]);
 
   useEffect(() => {
     if (data) {

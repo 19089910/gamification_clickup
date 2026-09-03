@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { AppNode, SubtaskNodeData } from '@/types/graph';
-import { STATUS_CONFIG, getStatusFromConfig } from '@/config/status';
+import { getStatus, getStatusGroups } from '@/config/status';
 import { useSubtaskDetail } from '@/hooks/useSubtaskDetail';
 import { InlineNameEditor } from './InlineNameEditor';
 
@@ -61,7 +61,7 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
       {/* Seletor de Status superior */}
       <div className="detail-status-container">
         {(() => {
-          const currentConfig = getStatusFromConfig(localStatus);
+          const currentConfig = getStatus(localStatus);
           const displayColor = currentConfig?.color || subtask.statusColor;
 
           return (
@@ -80,8 +80,8 @@ export function SubtaskDetail({ node }: { node: AppNode }) {
                 <option value={localStatus}>{localStatus.toUpperCase()}</option>
               )}
 
-              {STATUS_CONFIG.map((group) => (
-                <optgroup key={group.category} label={group.category}>
+              {getStatusGroups().map((group) => (
+                <optgroup key={group.category} label={group.label}>
                   {group.statuses.map((s) => (
                     <option key={s.id} value={s.id} style={{ color: s.color, backgroundColor: '#0d0d0d' }}>
                       {s.label}

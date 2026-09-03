@@ -1,39 +1,97 @@
-// Mapeamento baseado nos logs reais do workspace (Usando os nomes exatos que o ClickUp espera)
-export const STATUS_CONFIG = [
+export type StatusCategory =
+  | 'not-started'
+  | 'active'
+  | 'done';
+
+export interface StatusItem {
+  id: string;
+  label: string;
+  color: string;
+  category: StatusCategory;
+}
+
+export interface StatusGroup {
+  category: StatusCategory;
+  label: string;
+  statuses: StatusItem[];
+}
+
+export const STATUS_CONFIG: StatusItem[] = [
   {
-    category: 'Não Iniciado',
-    statuses: [
-      { id: 'planning', label: 'PLANNING', color: '#87909e' },
-    ]
+    id: 'planning',
+    label: 'PLANNING',
+    color: '#87909e',
+    category: 'not-started',
   },
   {
-    category: 'Ativo',
-    statuses: [
-      { id: 'in progress', label: 'EM PROGRESSO', color: '#5f55ee' },
-      { id: 'at risk', label: 'AT RISK', color: '#e16b16' },
-      { id: 'update required', label: 'UPDATE REQUIRED', color: '#f8ae00' },
-      { id: 'on hold', label: 'ON HOLD', color: '#aa8d80' },
-    ]
+    id: 'in progress',
+    label: 'EM PROGRESSO',
+    color: '#5f55ee',
+    category: 'active',
   },
   {
-    category: 'Feito',
-    statuses: [
-      { id: 'complete', label: 'CONCLUÍDO', color: '#0f9d9f' },
-    ]
-  }
+    id: 'at risk',
+    label: 'AT RISK',
+    color: '#e16b16',
+    category: 'active',
+  },
+  {
+    id: 'update required',
+    label: 'UPDATE REQUIRED',
+    color: '#f8ae00',
+    category: 'active',
+  },
+  {
+    id: 'on hold',
+    label: 'ON HOLD',
+    color: '#aa8d80',
+    category: 'active',
+  },
+  {
+    id: 'complete',
+    label: 'CONCLUÍDO',
+    color: '#0f9d9f',
+    category: 'done',
+  },
 ];
 
-// Helper para buscar status no config por ID ou por Nome
-export function getStatusFromConfig(statusAttr: string) {
+/**
+ * Busca o StatusItem correspondente na configuração pelo ID ou pelo texto vindo da API/UI.
+ */
+export function getStatus(statusAttr: string): StatusItem | null {
   if (!statusAttr) return null;
-  const s = statusAttr.toLowerCase();
-  for (const group of STATUS_CONFIG) {
-    const found = group.statuses.find(item => 
-      item.id === statusAttr || 
-      item.label.toLowerCase() === s || 
-      item.id.split('_').pop()?.toLowerCase() === s
-    );
-    if (found) return found;
-  }
-  return null;
+  const normalized = statusAttr.trim().toLowerCase();
+
+  return (
+    STATUS_CONFIG.find(
+      (item) => item.id.toLowerCase() === normalized || item.label.toLowerCase() === normalized
+    ) || null
+  );
+}
+
+/**
+ * Retorna a categoria ('not-started' | 'active' | 'done') de um determinado status.
+ */
+export function getCategory(statusAttr: string): StatusCategory | null {
+  const item = getStatus(statusAttr);
+  return item ? item.category : null;
+}
+
+/**
+ * Agrupa a lista plana de STATUS_CONFIG por categoria para uso em selects (<optgroup>)
+ */
+export function getStatusGroups(): StatusGroup[] {
+  const categoryLabels: Record<StatusCategory, string> = {
+    'not-started': 'Não Iniciado',
+    'active': 'Em Andamento',
+    'done': 'Concluído',
+  };
+
+  const categories: StatusCategory[] = ['not-started', 'active', 'done'];
+
+  return categories.map((cat) => ({
+    category: cat,
+    label: categoryLabels[cat] || cat,
+    statuses: STATUS_CONFIG.filter((item) => item.category === cat),
+  }));
 }

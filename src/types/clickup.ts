@@ -1,13 +1,14 @@
-// ClickUp API v2 Types
+/**
+ * ==========================================
+ * TYPES DA API DO CLICKUP v2
+ * ==========================================
+ */
 
-export interface ClickUpTeam {
-  id: string;
-  name: string;
-  color: string;
-  avatar: string | null;
-  members: ClickUpMember[];
-}
+// ------------------------------------------
+// 1. USUÁRIOS E EQUIPES
+// ------------------------------------------
 
+/** Membro associado a um time ou workspace */
 export interface ClickUpMember {
   user: {
     id: number;
@@ -17,6 +18,29 @@ export interface ClickUpMember {
   };
 }
 
+/** Usuário individual do ClickUp (utilizado em filtros ou perfis) */
+export interface ClickUpUser {
+  id: number;
+  username: string;
+  initials: string;
+  profilePicture: string;
+  color: string;
+}
+
+/** Time/Workspace principal do ClickUp */
+export interface ClickUpTeam {
+  id: string;
+  name: string;
+  color: string;
+  avatar: string | null;
+  members: ClickUpMember[];
+}
+
+// ------------------------------------------
+// 2. ESTRUTURA HIERÁRQUICA (Spaces, Folders, Lists)
+// ------------------------------------------
+
+/** Espaço de trabalho principal dentro de um time */
 export interface ClickUpSpace {
   id: string;
   name: string;
@@ -26,6 +50,7 @@ export interface ClickUpSpace {
   admin_can_manage: boolean;
 }
 
+/** Pasta que organiza listas dentro de um Space */
 export interface ClickUpFolder {
   id: string;
   name: string;
@@ -37,6 +62,7 @@ export interface ClickUpFolder {
   lists?: ClickUpList[];
 }
 
+/** Lista que contém tarefas no ClickUp */
 export interface ClickUpList {
   id: string;
   name: string;
@@ -63,6 +89,7 @@ export interface ClickUpList {
   folder?: { id: string; name: string; hidden: boolean; access: boolean };
 }
 
+/** Status customizado aplicável a tarefas e listas */
 export interface ClickUpStatus {
   id: string;
   status: string;
@@ -71,6 +98,11 @@ export interface ClickUpStatus {
   type: string;
 }
 
+// ------------------------------------------
+// 3. TAREFAS E METADADOS ASSOCIADOS
+// ------------------------------------------
+
+/** Tarefa principal do ClickUp */
 export interface ClickUpTask {
   id: string;
   name: string;
@@ -103,12 +135,17 @@ export interface ClickUpTask {
   subtasks?: ClickUpTask[];
   dependencies?: ClickUpDependency[];
   custom_fields?: ClickUpCustomField[];
-  /** ClickUp native: 1 for Milestone, null or 0 for regular Task */
+  /** Tipo Nativo ClickUp: 1 para Marco/Milestone, null ou 0 para Tarefa Comum */
   custom_item_id?: number | null;
   time_spent?: number;
-  checklists?: { id: string; name: string; items: { id: string; name: string; resolved: boolean }[] }[];
+  checklists?: {
+    id: string;
+    name: string;
+    items: { id: string; name: string; resolved: boolean }[]
+  }[];
 }
 
+/** Tag/Etiqueta associada a uma tarefa */
 export interface ClickUpTag {
   name: string;
   tag_fg: string;
@@ -116,6 +153,7 @@ export interface ClickUpTag {
   creator: number;
 }
 
+/** Relação de dependência entre tarefas */
 export interface ClickUpDependency {
   task_id: string;
   depends_on: string;
@@ -124,6 +162,7 @@ export interface ClickUpDependency {
   userid: string;
 }
 
+/** Campo customizado da tarefa */
 export interface ClickUpCustomField {
   id: string;
   name: string;
@@ -135,7 +174,10 @@ export interface ClickUpCustomField {
   required: boolean;
 }
 
-// API Response wrappers
+// ------------------------------------------
+// 4. RESPOSTAS DAS REQUISIÇÕES DA API (Payloads HTTP)
+// ------------------------------------------
+
 export interface TeamsResponse {
   teams: ClickUpTeam[];
 }
@@ -156,6 +198,20 @@ export interface TasksResponse {
   tasks: ClickUpTask[];
 }
 
+// ------------------------------------------
+// 5. ESTRUTURAS INTERNAS E UTILITÁRIOS DA APLICAÇÃO
+// ------------------------------------------
+
+/** Payload formatado para a renderização de gráficos na aplicação */
+export interface GraphApiResponse {
+  folders: ClickUpFolder[];
+  folderlessLists: ClickUpList[];
+  folderListsMap: Record<string, ClickUpList[]>;
+  listTasksMap: Record<string, ClickUpTask[]>;
+  error?: string;
+}
+
+/** Payload para manipulação de itens de checklist na UI */
 export interface ChecklistItemPayload {
   id: string;
   name: string;

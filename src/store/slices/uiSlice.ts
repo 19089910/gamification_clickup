@@ -22,7 +22,6 @@ export const createUiSlice: StateCreator<GraphStore, [], [], UiSlice> = (set) =>
       subtask: 0,
     },
   },
-  editTaskModal: { isOpen: false, taskId: '', name: '', quarter: '' },
   quarterPickerModal: { isOpen: false, listName: '', folderId: '', tempNodeId: '' },
 
   setLoading: (loading) => set({ isLoading: loading }),
@@ -38,9 +37,6 @@ export const createUiSlice: StateCreator<GraphStore, [], [], UiSlice> = (set) =>
         ...(settings.nodeHeightsByType || {}),
       },
     },
-  })),
-  setEditTaskModal: (data) => set((state) => ({
-    editTaskModal: { ...state.editTaskModal, ...data },
   })),
   setQuarterPickerModal: (data) => set((state) => ({
     quarterPickerModal: { ...state.quarterPickerModal, ...data },

@@ -3,12 +3,14 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGraphStore } from '@/store/graphStore';
-import { GraphApiResponse } from '@/hooks/useClickUpData';
+import { GraphApiResponse } from '@/types/clickup';
+import { SEASON_CONFIG } from '@/config/quarters';
+import { Season } from '@/types/graph';
 
 export default function QuarterPickerModal() {
   const { quarterPickerModal, setQuarterPickerModal, createList } = useGraphStore();
   const queryClient = useQueryClient();
-  const [selectedQ, setSelectedQ] = useState<string>('SUMMER');
+  const [selectedQ, setSelectedQ] = useState<Season>('SUMMER');
   const [isSaving, setIsSaving] = useState(false);
 
   if (!quarterPickerModal.isOpen) return null;
@@ -21,11 +23,11 @@ export default function QuarterPickerModal() {
         quarterPickerModal.listName,
         selectedQ,
       );
-      
+
       if (result?.taskWarning) {
         console.warn(result.taskWarning);
       }
-      
+
       // Local Sync: Update cache after success
       queryClient.setQueryData(['clickup-graph', useGraphStore.getState().spaceId], (oldData: GraphApiResponse | undefined) => {
         if (!oldData || !result.list) return oldData;
@@ -69,13 +71,16 @@ export default function QuarterPickerModal() {
         <p className="qpicker-label">Selecione o trimestre:</p>
 
         <div className="qpicker-options">
-          {(['SUMMER', 'FALL', 'WINTER', 'SPRING'] as const).map((q) => (
+          {SEASON_CONFIG.map((season) => (
             <button
-              key={q}
-              className={`qpicker-option ${selectedQ === q ? 'active' : ''}`}
-              onClick={() => setSelectedQ(q)}
+              key={season.id}
+              className={`qpicker-option ${selectedQ === season.id ? 'active' : ''}`}
+              onClick={() => setSelectedQ(season.id)}
+              style={{
+                borderColor: selectedQ === season.id ? season.color : undefined,
+              }}
             >
-              {q}
+              {season.label}
             </button>
           ))}
         </div>

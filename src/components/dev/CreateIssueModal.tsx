@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClickUpTask } from "@/types/clickup";
+import { ClickUpTask, ClickUpUser } from "@/types/clickup";
 import { STATUS_CONFIG } from "@/config/status";
 
 interface CreateIssueModalProps {
@@ -10,14 +10,6 @@ interface CreateIssueModalProps {
   epics: ClickUpTask[];
   milestoneId?: string;
   onClose: () => void;
-}
-
-interface ClickUpUser {
-  id: number;
-  username: string;
-  initials: string;
-  profilePicture: string;
-  color: string;
 }
 
 export default function CreateIssueModal({
@@ -29,7 +21,7 @@ export default function CreateIssueModal({
   const queryClient = useQueryClient();
   const [step, setStep] = useState<1 | 2>(1);
   const [selectedEpicId, setSelectedEpicId] = useState("");
-  
+
   // Fields for Step 2
   const [name, setName] = useState("");
   const [status, setStatus] = useState("planning");
@@ -146,9 +138,9 @@ export default function CreateIssueModal({
                 </div>
                 <div className="field half">
                   <label className="field-label">Assignee</label>
-                  <select 
-                    className="input-select" 
-                    value={assigneeId} 
+                  <select
+                    className="input-select"
+                    value={assigneeId}
                     onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : "")}
                   >
                     <option value="">Unassigned</option>
