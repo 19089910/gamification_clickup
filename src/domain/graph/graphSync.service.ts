@@ -49,4 +49,55 @@ export class GraphSyncService {
       edges: [...rawEdges, ...pendingLocalEdges],
     };
   }
+
+  /**
+   * Atualiza a propriedade status de uma ou mais tarefas diretamente no cache do React Query
+   * de forma completamente imutável, garantindo que o re-render aconteça corretamente.
+   */
+  static updateTasksStatusInCache(
+    oldData: any | undefined, // Usamos any no momento para evitar dependência circular pesada, mas idealmente seria GraphApiResponse
+    updates: { id: string; status: string; color: string }[]
+  ): any | undefined {
+    if (!oldData) return oldData;
+
+    const updateMap = new Map(updates.map(u => {
+      const cleanId = u.id.replace(/^(task|subtask)-/, '');
+      return [cleanId, u];
+    }));
+
+    let hasChanges = false;
+    const newListTasksMap: Record<string, any[]> = {};
+
+    for (const [listId, tasks] of Object.entries(oldData.listTasksMap as Record<string, any[]>)) {
+      let listChanged = false;
+      const newTasks = tasks.map(task => {
+        const update = updateMap.get(task.id);
+        if (update) {
+          listChanged = true;
+          hasChanges = true;
+          return {
+            ...task,
+            status: {
+              ...task.status,
+              status: update.status,
+              color: update.color,
+            }
+          };
+        }
+        return task;
+      });
+
+      newListTasksMap[listId] = listChanged ? newTasks : tasks;
+    }
+
+    if (!hasChanges) return oldData;
+
+    return {
+      ...oldData,
+      listTasksMap: {
+        ...oldData.listTasksMap,
+        ...newListTasksMap,
+      }
+    };
+  }
 }
