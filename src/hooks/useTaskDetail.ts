@@ -5,105 +5,40 @@ import { TaskNodeData } from '@/types/graph';
 import { GraphApiResponse } from '@/types/clickup';
 import { getStatus, getCategory } from '@/config/status';
 import { TRIMESTRE_FIELD_ID, SEASON_MAP } from '@/config/quarters';
-import { extractTagsFromName } from '@/utils/label-parser';
 import { SubtaskNodeData, AppNode, Season } from '@/types/graph';
 import { shouldUpdateSubtasksOnParentStatusChange, getActiveSubtaskStatus, getDoneSubtaskStatus } from '@/domain/status/statusRules';
 import { GraphSyncService } from '@/domain/graph/graphSync.service';
+import { useTaskName } from './task/useTaskName';
 
 export function useTaskDetail(node: AppNode) {
-  const { updateTask, selectedQuarter, setSidebarOpen, updateNodeTags } = useGraphStore();
+  const { updateTask, selectedQuarter } = useGraphStore();
   const queryClient = useQueryClient();
 
   const task = node.data as TaskNodeData;
 
-  const [localName, setLocalName] = useState(task.label as string);
   const [localQuarter, setLocalQuarter] = useState<Season>();
   const [localStatus, setLocalStatus] = useState<string>('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingOther, setIsSavingOther] = useState(false);
+
+  // --- SUB-HOOK: Name & Tags ---
+  const nameState = useTaskName(node, localQuarter);
 
   useEffect(() => {
     function isSeason(value: string): value is Season {
       return value in SEASON_MAP;
     }
 
-    setLocalName(task.label as string);
     const resolvedQuarter = task.quarter && isSeason(task.quarter) ? task.quarter : selectedQuarter;
     setLocalQuarter(resolvedQuarter ?? undefined);
 
     const statusConfig = getStatus(task.status);
     setLocalStatus(statusConfig?.id || task.status.toLowerCase());
-  }, [task.label, task.quarter, task.status, selectedQuarter]);
-
-  const handleSaveTask = async () => {
-    if (!localName.trim()) return;
-
-    const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
-    const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
-    const newTags = extractTagsFromName(localName);
-    const existingTags = (task.tags || []).map(t => t.name);
-    const tagsToAdd = newTags.filter(t => !existingTags.includes(t));
-
-    setIsSaving(true);
-    try {
-      const updates = { name: localName, quarter: localQuarter };
-      // 1. Optimistic update no React Query cache
-      queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
-        if (!oldData) return oldData;
-        const newListTasksMap = { ...oldData.listTasksMap };
-        let taskFound = false;
-
-        for (const listId in newListTasksMap) {
-          const taskIndex = newListTasksMap[listId].findIndex(t => t.id === task.taskId);
-          if (taskIndex !== -1) {
-            const originalTask = newListTasksMap[listId][taskIndex];
-            const updatedTask = { ...originalTask, name: localName };
-
-            if (localQuarter && SEASON_MAP[localQuarter]) {
-              const cfIndex = updatedTask.custom_fields?.findIndex(cf => cf.id === TRIMESTRE_FIELD_ID);
-              const customFields = [...(updatedTask.custom_fields || [])];
-
-              if (cfIndex !== undefined && cfIndex !== -1) {
-                customFields[cfIndex] = { ...customFields[cfIndex], value: SEASON_MAP[localQuarter] };
-              }
-              else {
-                customFields.push({ id: TRIMESTRE_FIELD_ID, value: SEASON_MAP[localQuarter] } as any);
-              }
-              updatedTask.custom_fields = customFields;
-            }
-            // 2. Optimistic update das tags no Zustand
-            if (tagsToAdd.length > 0) {
-              updateNodeTags(task.taskId, newTags);
-            }
-
-            newListTasksMap[listId][taskIndex] = updatedTask;
-            taskFound = true;
-            break;
-          }
-        }
-        return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
-      });
-      // 3. API call
-      await updateTask(task.taskId as string, { ...updates, tags: tagsToAdd });
-    } catch (err) {
-      console.error('Failed to update task:', err);
-      if (previousData) {
-        queryClient.setQueryData(queryKey, previousData);
-      }
-      queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleTaskKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') { e.preventDefault(); await handleSaveTask(); }
-    if (e.key === 'Escape') setSidebarOpen(false);
-  };
+  }, [task.quarter, task.status, selectedQuarter]);
 
   const handleQuarterChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newQ = e.target.value as Season;
     setLocalQuarter(newQ);
-    setIsSaving(true);
+    setIsSavingOther(true);
 
     const queryKey = ['clickup-graph', useGraphStore.getState().spaceId];
     const previousData = queryClient.getQueryData<GraphApiResponse>(queryKey);
@@ -118,7 +53,7 @@ export function useTaskDetail(node: AppNode) {
           const taskIndex = newListTasksMap[listId].findIndex(t => t.id === task.taskId);
           if (taskIndex !== -1) {
             const originalTask = newListTasksMap[listId][taskIndex];
-            const updatedTask = { ...originalTask, name: localName };
+            const updatedTask = { ...originalTask, name: nameState.localName };
 
             if (newQ && SEASON_MAP[newQ]) {
               const cfIndex = updatedTask.custom_fields?.findIndex(cf => cf.id === TRIMESTRE_FIELD_ID);
@@ -140,7 +75,7 @@ export function useTaskDetail(node: AppNode) {
         return taskFound ? { ...oldData, listTasksMap: newListTasksMap } : oldData;
       });
 
-      await updateTask(task.taskId as string, { name: localName, quarter: newQ });
+      await updateTask(task.taskId as string, { name: nameState.localName, quarter: newQ });
     } catch (err) {
       console.error('Failed to update task quarter:', err);
       if (previousData) {
@@ -148,14 +83,14 @@ export function useTaskDetail(node: AppNode) {
       }
       queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
     } finally {
-      setIsSaving(false);
+      setIsSavingOther(false);
     }
   };
 
   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newStatusIdOrName = e.target.value;
     setLocalStatus(newStatusIdOrName);
-    setIsSaving(true);
+    setIsSavingOther(true);
 
     const statusConfig = getStatus(newStatusIdOrName);
     const newColor = statusConfig?.color || task.statusColor;
@@ -215,13 +150,10 @@ export function useTaskDetail(node: AppNode) {
       ];
       useGraphStore.getState().updateNodesStatus(updates);
 
-      // Atualiza o Cache Imutável do React Query (SOLID)
       queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
         return GraphSyncService.updateTasksStatusInCache(oldData, updates);
       });
 
-
-      // API — pai + filhos em paralelo
       await Promise.all([
         updateTask(task.taskId as string, { status: statusConfig?.id || newStatusIdOrName }),
         ...childrenToSync.map(n =>
@@ -234,17 +166,15 @@ export function useTaskDetail(node: AppNode) {
       if (previousData) queryClient.setQueryData(queryKey, previousData);
       queryClient.invalidateQueries({ queryKey: ['clickup-graph'] });
     } finally {
-      setIsSaving(false);
+      setIsSavingOther(false);
     }
   };
 
   return {
-    localName,
-    setLocalName,
+    ...nameState,
     localQuarter,
     localStatus,
-    isSaving,
-    handleTaskKeyDown,
+    isSaving: nameState.isSavingName || setIsSavingOther,
     handleQuarterChange,
     handleStatusChange,
   };
