@@ -65,8 +65,6 @@ export function useSubtaskStatus(node: AppNode) {
             }
 
             useGraphStore.getState().updateNodesStatus(updates);
-            console.log('parentId:', parentId);
-            console.log('updates:', updates);
             // Atualização na Cache do React Query (SOLID)
             queryClient.setQueryData(queryKey, (oldData: GraphApiResponse | undefined) => {
                 return GraphSyncService.updateTasksStatusInCache(oldData, updates);
